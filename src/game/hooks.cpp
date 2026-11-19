@@ -151,12 +151,9 @@ void MenuTick(X86Context& ctx, uint8_t*) {
 // what a step made once a frame at 30 becomes over the real frame: factor to the power of this
 static float FrameShare() { return FrameTime() / G<float>(kGameFrameTime); }
 
-// weapon
-constexpr uint32_t kWeaponOwner = 0xF0;
 // player
 constexpr uint32_t kPlayerForward = 0xF0;
 constexpr uint32_t kPlayerEye = 0x100;
-constexpr uint32_t kPlayerWeapon = 0x29C;
 constexpr uint32_t kPlayerZoom = 0x2A4;
 constexpr uint32_t kPlayerFireRequest = 0x32C;
 
@@ -228,8 +225,6 @@ X86_FUNC(sub_00176F60) {
     if (scale) d3d::ViewScale(1);
     if (keep_near) d3d::NearDepth(0);
 }
-
-static uint32_t Player() { return R32(kWorld) + kWorldPlayer; }
 
 // What sits on the gun follows its picture: across the player's view a point or an axis grows by the same share,
 // its depth stays

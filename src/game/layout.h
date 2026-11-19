@@ -35,6 +35,12 @@ constexpr uint32_t kTimerTime = 0x20;
 constexpr uint32_t kWorld = 0x2D45D4;
 constexpr uint32_t kWorldPlayer = 0x30;
 
+// player
+constexpr uint32_t kPlayerWeapon = 0x29C;  // the weapon in hand
+
+// the player, in the world container
+inline uint32_t Player() { return kernel::R32(kWorld) + kWorldPlayer; }
+
 // display: +0 width
 constexpr uint32_t kDisplay = 0x2D67F4;
 constexpr uint32_t kDisplayWidescreen = 0x0C;
@@ -52,6 +58,7 @@ constexpr uint32_t kStageX = 0x295DA4;  // float: the 640 Flash stage sits this 
 
 // weapon and its data
 constexpr uint32_t kWeaponData = 0xEC;
+constexpr uint32_t kWeaponOwner = 0xF0;  // the character holding it
 constexpr uint32_t kDataAimZoom = 0xB4;  // float: 1 for a weapon that does not aim
 
 // UI object, the front end the menu hooks get in ebp
