@@ -9,6 +9,7 @@
 #include "common/options.h"
 #include "core/input.h"
 #include "game/layout.h"
+#include "game/research.h"
 #include "xdk/d3d8.h"
 #include "xdk/hle.h"
 #include "xdk/layout.h"
@@ -182,6 +183,7 @@ static float g_game_fov = 0;  // the game's own in their place
 // The view of play, 70 over the zoom: the setting from the hip, the game's own once the aim is in.
 // ecx the weapon, xmm0 its zoom. Scripted cameras write theirs after this
 void FieldOfView(X86Context& ctx, uint8_t*) {
+    research::Tick();
     uint32_t data = R32(ctx.ecx + kWeaponData);
     float aim = data ? G<float>(data + kDataAimZoom) : 1;
     float zoom = ctx.xmm[0].f[0];
