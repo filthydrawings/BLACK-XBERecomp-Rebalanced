@@ -741,6 +741,16 @@ call = "Hit1E795B"
 at = 0x1ED7CB
 call = "Hit1ED7CB"
 
+# src/game/borrowed_weapons.cpp, the Starting weapon's pickup pack from another level, and its release
+[[hook]]
+at = 0x1EE310
+call = "BorrowStagePickups"
+on_true = 0x1EDF95
+
+[[hook]]
+at = 0x1EBEBB
+call = "ReleaseBorrowedPickups"
+
 # src/game/new_game_plus.cpp, the level load's New Game+ flags
 [[hook]]
 at = 0x1EE1FF
