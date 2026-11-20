@@ -462,15 +462,19 @@ void LogStates(FILE* f, uint32_t weapon, uint32_t frame) {
 // game's own give-weapon event does it (sub_001E8830): the character takes the weapon's model (sub_001C5CD0), the
 // weapon object lets go of its magazines (sub_001C2A30) and is set up again as the new kind (sub_001C9FA0). Then a
 // full clip and kSpareClips clips of spare ammo. The weapon records hold the rebalanced stats, so the weapon given
-// has them.
+// has them. The key only asks: the swap waits for the frame's end (BetweenFrames, at D3DDevice_Swap), as one made in
+// the middle of the weapon's own update left it using what was let go. A kind whose model this level has not loaded
+// is passed over: the character keeps its model then, and the next kind is tried.
 constexpr int kWeaponKey = VK_F5;
 constexpr uint32_t kWeaponKinds = 0x2D12D0;  // -> -> +1 byte the count, +4 the kinds, kWeaponKindSize each
 constexpr uint32_t kWeaponKindSize = 0x20;   // +0 and +4 its name's hash, +8 its weapon data
 constexpr uint32_t kWeaponKind = 0;          // byte, in the weapon object: its place in the table
+constexpr uint32_t kCharacterModels = 0x258;  // -> +0xC the model of the weapon in hand
 constexpr uint32_t kTakeModel = 0x1C5CD0;    // ebx the character, (hash, hash)
 constexpr uint32_t kLetGo = 0x1C2A30;        // ebx the weapon
 constexpr uint32_t kSetUp = 0x1C9FA0;        // al the kind, ecx the character, edx the weapon, (0)
 constexpr int kSpareClips = 4;
+int g_give_step;  // the swap asked for: 1 the next, -1 the one before, 0 none
 
 uint32_t WeaponKinds() {
     uint32_t holder = R32(kWeaponKinds);
@@ -500,27 +504,54 @@ std::string WeaponLine(uint32_t weapon) {
     return line;
 }
 
-void GiveWeapon(FILE* f, int step, uint32_t frame) {
+uint32_t WeaponModel(uint32_t character) {
+    uint32_t models = R32(character + kCharacterModels);
+    return models ? R32(models + 0xC) : 0;
+}
+
+void GiveWeapon(FILE* f, X86Context& ctx, int step, uint32_t frame) {
     uint32_t player = Player();
     uint32_t weapon = R32(player + kPlayerWeapon);
     std::vector<uint32_t> guns = GunKinds();
-    if (!weapon || guns.empty()) {
-        std::fprintf(f, "\n=== frame %u: F5, no weapon in hand or no weapon table (%zu kinds)\n", frame, guns.size());
-        return;
-    }
+    std::fprintf(f, "\n=== frame %u: F5 swap, weapon %08X, %zu kinds\n", frame, weapon, guns.size());
+    std::fflush(f);
+    if (!weapon || guns.empty()) return;
     RestoreExaggerated(f);
     size_t n = guns.size();
-    auto at = std::find(guns.begin(), guns.end(), uint32_t(G<uint8_t>(weapon + kWeaponKind)));
-    size_t next = at == guns.end() ? (step > 0 ? 0 : n - 1) : (size_t(at - guns.begin()) + n + step) % n;
-    uint32_t kind = guns[next];
-    uint32_t entry = R32(WeaponKinds() + 4) + kind * kWeaponKindSize;
-    const char* from = RecordName(R32(weapon + kWeaponData));
-    X86Context& ctx = CurrentContext();
+    uint32_t now = G<uint8_t>(weapon + kWeaponKind);
+    auto at = std::find(guns.begin(), guns.end(), now);
+    size_t from = at == guns.end() ? (step > 0 ? n - 1 : 0) : size_t(at - guns.begin());
+    const char* had = RecordName(R32(weapon + kWeaponData));
     X86Context saved = ctx;
-    ctx.ebx = player;
-    CallGuest(ctx, kTakeModel, {R32(entry), R32(entry + 4)});
+    // the next kind whose model the character takes
+    uint32_t kind = now;
+    for (size_t tries = 1; tries <= n; tries++) {
+        uint32_t next = guns[(from + n + step * int(tries)) % n];
+        if (next == now) break;
+        uint32_t entry = R32(WeaponKinds() + 4) + next * kWeaponKindSize;
+        uint32_t model = WeaponModel(player);
+        std::fprintf(f, "  kind %u %s: taking its model\n", next, RecordName(R32(entry + 8)));
+        std::fflush(f);
+        ctx.ebx = player;
+        CallGuest(ctx, kTakeModel, {R32(entry), R32(entry + 4)});
+        if (WeaponModel(player) != model) {
+            kind = next;
+            break;
+        }
+        std::fprintf(f, "  kind %u: no model in this level, passed over\n", next);
+    }
+    if (kind == now) {
+        ctx = saved;
+        std::fprintf(f, "  no other weapon this level has loaded\n");
+        std::fflush(f);
+        return;
+    }
+    std::fprintf(f, "  letting go of %s\n", had);
+    std::fflush(f);
     ctx.ebx = weapon;
     CallGuest(ctx, kLetGo, {});
+    std::fprintf(f, "  setting up kind %u\n", kind);
+    std::fflush(f);
     ctx.eax = kind;
     ctx.ecx = player;
     ctx.edx = weapon;
@@ -535,8 +566,9 @@ void GiveWeapon(FILE* f, int step, uint32_t frame) {
         uint16_t& left = G<uint16_t>(spare + R32(data + kDataAmmoType) * 2);
         left = std::max<uint16_t>(left, uint16_t(std::min(clip * kSpareClips, 0xFFFF)));
     }
-    std::fprintf(f, "\n=== frame %u: F5, weapon %08X %s -> kind %u %s (record %08X), magazine %08X rounds %u, spare %u\n",
-                 frame, weapon, from, kind, RecordName(data), data, magazine, Rounds(weapon), Spare(weapon, data));
+    std::fprintf(f, "  done: %s (record %08X), magazine %08X rounds %u, spare %u\n", RecordName(data), data, magazine,
+                 Rounds(weapon), Spare(weapon, data));
+    std::fflush(f);
 }
 
 }  // namespace
@@ -596,6 +628,18 @@ void CharacterHealthStart(X86Context& ctx, uint8_t*) {
 }
 
 namespace research {
+
+void BetweenFrames(X86Context& ctx) {
+    FILE* f = Log();
+    int step = g_give_step;
+    g_give_step = 0;
+    if (!f || !step || !R32(kWorld)) return;
+    static uint32_t swaps;
+    GiveWeapon(f, ctx, step, ++swaps);
+    static std::string note;
+    note = "F5: " + WeaponLine(R32(Player() + kPlayerWeapon));
+    Note(note.c_str());
+}
 
 void OverlayLines(std::vector<std::string>& lines) {
     if (Log()) lines.push_back("WEAPON LOGGING: ON");
@@ -671,12 +715,8 @@ void Tick() {
         std::fprintf(f, "\n=== frame %u: F11, reload x%g %s\n", frame, kReloadSpeed, g_reload_speed_on ? "on" : "off");
     }
     if (Pressed(kWeaponKey)) {
-        GiveWeapon(f, GetAsyncKeyState(VK_SHIFT) & 0x8000 ? -1 : 1, frame);
-        weapon = R32(player + kPlayerWeapon);
-        data = weapon ? R32(weapon + kWeaponData) : 0;
-        static std::string note;
-        note = "F5: " + WeaponLine(weapon);
-        Note(note.c_str());
+        g_give_step = GetAsyncKeyState(VK_SHIFT) & 0x8000 ? -1 : 1;
+        Note(g_give_step > 0 ? "F5: NEXT WEAPON" : "F5: WEAPON BEFORE");
     }
     TrackReloads(f, weapon, data, frame);
     rebalance::OverrideReloadSpeed(g_reload_speed_on ? kReloadSpeed : 0.0f);
