@@ -5,7 +5,7 @@
 # Each part applies only with its toggle on, in the game's Recomp Settings > Balancing Settings (or F10), and the
 # toggles take effect at once: Enemy rebalancing (the hits tables), Per difficulty enemy rebalancing (off, every
 # difficulty uses [normal]), Realistic clip sizes (clip), Weapon range adjustments (range), Recoil adjustments
-# (recoil). A clip change shows from the next reload or pickup.
+# (recoil), Reload speed adjustments (reload). A clip change shows from the next reload or pickup.
 #
 # HITS TO KILL
 # One row per enemy type, one number per weapon: how many body hits that weapon needs to kill that enemy.
@@ -71,8 +71,8 @@ type_40_back = [  1,   1,   1,   1,   2,   2,   1,   2,   1,   1,   1,   1,   1,
 #   range     record +0x14, unconfirmed: 25 shotguns, 30 Uzi/MAC10/P90, 60 most guns, 1000 long range.
 #             Applied with Weapon range adjustments
 #   recoil    record +0x68, confirmed: the kick of each shot, higher kicks more. Applied with Recoil adjustments
-#   reload    reload speed multiplier, 1.0 = the game's, 2.0 = twice as fast. NOT APPLIED YET: the reload timing
-#             and animation fields are still being researched
+#   reload    reload speed, 1.0 = the game's, 2.0 = twice as fast, 0.5 = half: the reload animation plays at that
+#             speed and the clip refills with it, sound in step. 0.25 to 4. Applied with Reload speed adjustments
 #   the fire interval (record +0x20, seconds between shots) is not editable on purpose: a change puts the
 #   weapon's animations out of step with its shots
 #   spread: no record field found that changes it (all 22 candidates tried), so not editable

@@ -57,6 +57,7 @@ struct Options {
     bool realistic_clips = true;  // its clip sizes
     bool range_adjust = false;  // its ranges
     bool recoil_adjust = false;  // its recoil kicks
+    bool reload_adjust = true;  // its reload speeds
     std::map<std::string, std::string> keys;  // action id to key names, absent is the default
 };
 Options& Opt();

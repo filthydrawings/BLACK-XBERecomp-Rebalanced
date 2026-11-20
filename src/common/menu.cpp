@@ -241,7 +241,7 @@ enum RowId { kDisplayMode, kResolution, kRenderResolution, kMaxFps, kVsync, kFps
              kGyroCalibrate, kColourBlind, kSensitivityVertical, kAimHorizontal, kAimVertical, kInvertMouseX,
              kControllerVertical, kPadAimHorizontal, kPadAimVertical, kInvertPadX, kTextureReplacement,
              kTextureDumping, kDumpFormat, kDeadZone, kEnemyRebalance, kPerDifficultyRebalance, kRealisticClips,
-             kRangeAdjust, kRecoilAdjust };
+             kRangeAdjust, kRecoilAdjust, kReloadAdjust };
 
 using rows::Kind;
 using rows::Row;
@@ -283,6 +283,7 @@ constexpr Row kSettingsRows[] = {
     {Kind::Value, kRealisticClips, "REALISTIC CLIP SIZES"},
     {Kind::Value, kRangeAdjust, "WEAPON RANGE ADJUSTMENTS"},
     {Kind::Value, kRecoilAdjust, "RECOIL ADJUSTMENTS"},
+    {Kind::Value, kReloadAdjust, "RELOAD SPEED ADJUSTMENTS"},
 };
 
 // what a row does, shown in the F10 panel's hint line while it is hovered or focused; empty for none
@@ -296,6 +297,7 @@ const char* Description(int id) {
         case kRangeAdjust: return "Uses the ranges in balance.toml, for a more satisfying reach.";
         case kRecoilAdjust:
             return "Uses the recoil values in balance.toml to rebalance how much each weapon kicks.";
+        case kReloadAdjust: return "Reload speeds from balance.toml, animation and sound kept in step. 1.0 is the game's speed.";
         default: return "";
     }
 }
@@ -368,6 +370,7 @@ bool* ToggleFlag(Settings& s, int id) {
         case kRealisticClips: return &o.realistic_clips;
         case kRangeAdjust: return &o.range_adjust;
         case kRecoilAdjust: return &o.recoil_adjust;
+        case kReloadAdjust: return &o.reload_adjust;
         default: return nullptr;
     }
 }

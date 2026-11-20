@@ -8,5 +8,7 @@ void Tick();  // game thread, once a frame of play: reads the file and applies t
 // game thread, once a frame of play: the player's reload animation at speed times the game's while the weapon in
 // hand reloads, the game's speed given back once it ends; 1 leaves the game's
 void ApplyReloadSpeed(uint32_t weapon, float speed);
+// every reload at that speed whatever the settings and balance.toml, the research logger's F11; 0 for none
+void OverrideReloadSpeed(float speed);
 
 }  // namespace rebalance

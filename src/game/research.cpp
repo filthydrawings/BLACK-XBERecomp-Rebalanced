@@ -431,8 +431,8 @@ void TrackReloads(FILE* f, uint32_t weapon, uint32_t data, uint32_t frame) {
     last_state = state;
 }
 
-// F11: the player's reload animations at kReloadSpeed (rebalance::ApplyReloadSpeed), to see whether a reload
-// shortens with its animation
+// F11: the player's reload animations at kReloadSpeed whatever the settings (rebalance::OverrideReloadSpeed), to
+// compare with the game's
 constexpr int kReloadSpeedKey = VK_F11;
 constexpr float kReloadSpeed = 2.0f;
 
@@ -584,7 +584,7 @@ void Tick() {
         std::fprintf(f, "\n=== frame %u: F11, reload x%g %s\n", frame, kReloadSpeed, g_reload_speed_on ? "on" : "off");
     }
     TrackReloads(f, weapon, data, frame);
-    rebalance::ApplyReloadSpeed(weapon, g_reload_speed_on ? kReloadSpeed : 1.0f);
+    rebalance::OverrideReloadSpeed(g_reload_speed_on ? kReloadSpeed : 0.0f);
     LogStates(f, weapon, frame);
 
     static Snapshot snapshots[] = {{"player"}, {"weapon"}, {"weapon data"}};
