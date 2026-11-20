@@ -67,6 +67,10 @@ constexpr uint32_t kMsaaValues[] = {0, 2, 4, 8};
 const char* const kMsaaNames[] = {"OFF", "2x", "4x", "8x"};
 constexpr uint32_t kAoValues[] = {0, 1, 2};
 const char* const kAoNames[] = {"OFF", "SSAO", "GTAO"};
+// "GAME DEFAULT" then the weapon records in order, as src/game/layout.h has them
+const char* const kStartWeaponNames[] = {"GAME DEFAULT", "DC3 ELITE", "SPAS-12", "SNIPER RIFLE", "UZI", "G36C",
+                                         "AK-47", "RPG", "GRENADE LAUNCHER", "MAC-10", "P90", "M249", "MAGNUM",
+                                         "M16", "REMINGTON 870", "GLOCK", "MP5"};
 constexpr uint32_t kFmvScales[] = {0, 1};
 const char* const kFmvScaleNames[] = {"FILL", "4:3"};
 constexpr uint32_t kColourBlindModes[] = {0, 1, 2, 3};
@@ -241,7 +245,8 @@ enum RowId { kDisplayMode, kResolution, kRenderResolution, kMaxFps, kVsync, kFps
              kGyroCalibrate, kColourBlind, kSensitivityVertical, kAimHorizontal, kAimVertical, kInvertMouseX,
              kControllerVertical, kPadAimHorizontal, kPadAimVertical, kInvertPadX, kTextureReplacement,
              kTextureDumping, kDumpFormat, kDeadZone, kEnemyRebalance, kPerDifficultyRebalance, kRealisticClips,
-             kRangeAdjust, kRecoilAdjust, kReloadAdjust, kDrawAdjust };
+             kRangeAdjust, kRecoilAdjust, kReloadAdjust, kDrawAdjust,
+             kNgpSilver, kNgpAmmo, kNgpStartWeapon };
 
 using rows::Kind;
 using rows::Row;
@@ -285,6 +290,10 @@ constexpr Row kSettingsRows[] = {
     {Kind::Value, kRecoilAdjust, "RECOIL ADJUSTMENTS"},
     {Kind::Value, kReloadAdjust, "RELOAD SPEED ADJUSTMENTS"},
     {Kind::Value, kDrawAdjust, "WEAPON SWITCH SPEED ADJUSTMENTS"},
+    {Kind::Heading, -1, "NEW GAME+ SETTINGS"},
+    {Kind::Value, kNgpSilver, "SILVER WEAPONS"},
+    {Kind::Value, kNgpAmmo, "INFINITE AMMO"},
+    {Kind::Value, kNgpStartWeapon, "STARTING WEAPON"},
 };
 
 // what a row does, shown in the F10 panel's hint line while it is hovered or focused; empty for none
@@ -300,6 +309,9 @@ const char* Description(int id) {
             return "Uses the recoil values in balance.toml to rebalance how much each weapon kicks.";
         case kReloadAdjust: return "Reload speeds from balance.toml, animation and sound kept in step. 1.0 is the game's speed.";
         case kDrawAdjust: return "Weapon switch speeds from balance.toml, animation and sound kept in step. 1.0 is the game's.";
+        case kNgpSilver: return "Only affects stages unlocked for New Game+ on this difficulty. From the next level loaded.";
+        case kNgpAmmo:
+        case kNgpStartWeapon: return "Only affects stages unlocked for New Game+ on this difficulty.";
         default: return "";
     }
 }
@@ -374,6 +386,8 @@ bool* ToggleFlag(Settings& s, int id) {
         case kRecoilAdjust: return &o.recoil_adjust;
         case kReloadAdjust: return &o.reload_adjust;
         case kDrawAdjust: return &o.draw_adjust;
+        case kNgpSilver: return &o.ngp_silver_weapons;
+        case kNgpAmmo: return &o.ngp_infinite_ammo;
         default: return nullptr;
     }
 }
@@ -539,6 +553,13 @@ bool StepGraphicsRow(int id, int step, Settings& s, char (&text)[64]) {
         case kDrawDistance:
             std::snprintf(text, sizeof(text), "%s", kDistanceNames[StepTable(kDistances, o.draw_distance, step)]);
             return true;
+        case kNgpStartWeapon: {
+            int count = int(std::size(kStartWeaponNames));
+            int i = std::min(int(o.ngp_start_weapon), count - 1);
+            if (step) o.ngp_start_weapon = uint32_t(i = StepIndex(i, step, count));
+            std::snprintf(text, sizeof(text), "%s", kStartWeaponNames[i]);
+            return true;
+        }
         default:
             return false;
     }

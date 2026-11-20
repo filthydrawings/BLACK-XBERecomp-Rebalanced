@@ -59,6 +59,10 @@ struct Options {
     bool recoil_adjust = false;  // its recoil kicks
     bool reload_adjust = true;  // its reload speeds
     bool draw_adjust = true;  // its weapon switch speeds
+    // New Game+ stages (src/game/new_game_plus.cpp): on, the game's own
+    bool ngp_silver_weapons = true;
+    bool ngp_infinite_ammo = true;
+    uint32_t ngp_start_weapon = 0;  // 0 the game's, else 1 + a weapon record, layout::kWeaponNames' order
     std::map<std::string, std::string> keys;  // action id to key names, absent is the default
 };
 Options& Opt();

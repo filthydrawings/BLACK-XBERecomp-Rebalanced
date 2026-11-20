@@ -641,6 +641,45 @@ call = "Hit1E795B"
 at = 0x1ED7CB
 call = "Hit1ED7CB"
 
+# src/game/new_game_plus.cpp, the level load's New Game+ flags
+[[hook]]
+at = 0x1EE1FF
+call = "NewGamePlusFlags"
+
+# src/game/new_game_plus.cpp, the reads of the New Game+ flag for ammo
+[[hook]]
+at = 0x1EFC0F
+call = "InfiniteAmmoCl"
+after = true
+
+[[hook]]
+at = 0x1EFCDF
+call = "InfiniteAmmoAl"
+after = true
+
+[[hook]]
+at = 0x12CEEA
+call = "InfiniteAmmoDl"
+after = true
+
+[[hook]]
+at = 0x13A947
+call = "InfiniteAmmoAl"
+after = true
+
+# src/game/new_game_plus.cpp, the player's starting weapon
+[[hook]]
+at = 0x1DEE95
+call = "StartWeaponSpawn"
+
+[[hook]]
+at = 0x1DED51
+call = "StartWeaponRespawn"
+
+[[hook]]
+at = 0x1DF077
+call = "StartWeaponAmmo"
+
 # src/game/rebalance.cpp, a hit's entry in its type's hits table, from balance.toml
 [[hook]]
 at = 0x1E77F4
