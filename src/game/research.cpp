@@ -50,12 +50,6 @@ constexpr uint32_t kCharacterHealth = 0x2F0;     // float
 constexpr uint32_t kCharacterHealthFrom = 0x3D0;  // float, copied to the health as a character starts
 constexpr size_t kMostCharacters = 512;
 
-// character type, [character+0x320]: +4 its id, +0x3C a pointer to its hit zone table
-constexpr uint32_t kCharacterType = 0x320;
-constexpr uint32_t kTypeId = 0x04;
-constexpr uint32_t kTypeZones = 0x3C;
-// hit zone entry: the damage share from the front and from the back, then two instant kill flags
-constexpr uint32_t kZoneSize = 12;
 constexpr int kZonesLogged = 16;  // entries written the first time a table is seen
 std::vector<uint32_t> g_zone_tables;
 
@@ -69,12 +63,10 @@ void Note(const char* text) {
 }
 
 // character types sit in one array, by id
-constexpr uint32_t kTypeSize = 0x40;
 constexpr uint32_t kMostTypes = 128;
 uint32_t g_type_base;  // type 0, from the last type a hit saw
 
 // weapon records sit in one array; every record seen so far has these
-constexpr uint32_t kWeaponRecordSize = 0x1E0;
 constexpr uint32_t kMostRecords = 64;
 bool IsWeaponRecord(uint32_t r) {
     return r && R32(r + 4) == 1 && G<float>(r + 0xC) == 0.5f && G<float>(r + 0x1C) == 1.0f;
@@ -187,7 +179,7 @@ void LogZones(FILE* f, uint32_t table) {
     g_zone_tables.push_back(table);
     std::fprintf(f, "zone table %08X:\n", table);
     for (int zone = 0; zone < kZonesLogged; zone++) {
-        uint32_t entry = table + zone * kZoneSize;
+        uint32_t entry = table + zone * kHitsEntrySize;
         std::fprintf(f, "  zone %2d  front %g  back %g  flags %u %u\n", zone, G<float>(entry), G<float>(entry + 4),
                      G<uint8_t>(entry + 8), G<uint8_t>(entry + 9));
     }
@@ -225,11 +217,11 @@ void LogTypes(FILE* f) {
     for (uint32_t id = 0; id < kMostTypes; id++) {
         uint32_t type = g_type_base + id * kTypeSize;
         if (R32(type + kTypeId) != id) continue;
-        uint32_t zones = R32(type + kTypeZones);
+        uint32_t zones = R32(type + kTypeHits);
         uint32_t table = zones ? R32(zones) : 0;
         std::fprintf(f, "type %3u %08X zones %08X:", id, type, table);
         for (int zone = 0; table && zone < kZonesLogged; zone++) {
-            uint32_t entry = table + zone * kZoneSize;
+            uint32_t entry = table + zone * kHitsEntrySize;
             std::fprintf(f, " %d=%g/%g%s%s", zone, G<float>(entry), G<float>(entry + 4), G<uint8_t>(entry + 8) ? "k" : "",
                          G<uint8_t>(entry + 9) ? "K" : "");
         }
@@ -268,12 +260,12 @@ void HitDamage(X86Context& ctx, uint8_t*) {
     if (!f) return;
     uint32_t character = ctx.ebx;
     uint32_t type = R32(character + kCharacterType);
-    uint32_t table = type ? R32(R32(type + kTypeZones)) : 0;
+    uint32_t table = type ? R32(R32(type + kTypeHits)) : 0;
     if (type) g_type_base = type - R32(type + kTypeId) * kTypeSize;
     uint32_t held = R32(Player() + kPlayerWeapon);
     uint32_t record = held ? R32(held + kWeaponData) : 0;
     int zone = int8_t(G<uint8_t>(ctx.ebp + 0x18));
-    uint32_t entry = table + uint32_t(zone) * kZoneSize;
+    uint32_t entry = table + uint32_t(zone) * kHitsEntrySize;
     std::fprintf(f, "damage %g: character %08X type %08X id %u zone %d front %g back %g, attacker %08X%s, weapon %08X, difficulty %u\n",
                  ctx.xmm[0].f[0], character, type, type ? R32(type + kTypeId) : 0, zone,
                  table ? G<float>(entry) : 0.0f, table ? G<float>(entry + 4) : 0.0f, ctx.esi,

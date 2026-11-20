@@ -62,6 +62,20 @@ constexpr uint32_t kWeaponData = 0xEC;
 constexpr uint32_t kWeaponOwner = 0xF0;  // the character holding it
 constexpr uint32_t kDataAimZoom = 0xB4;  // float: 1 for a weapon that does not aim
 
+// character type: characters of a type share its record, the types sit in one array by id
+constexpr uint32_t kCharacterType = 0x320;  // in the character: its type record
+constexpr uint32_t kTypeSize = 0x40;
+constexpr uint32_t kTypeId = 0x04;
+constexpr uint32_t kTypeHits = 0x3C;  // a pointer to a pointer to its hits table, an entry per weapon record
+// hits table entry: float share of health a hit takes from the front, from the back, then two instant kill flag bytes
+constexpr uint32_t kHitsEntrySize = 12;
+
+// weapon records, the weapon data blocks, in one array
+constexpr uint32_t kWeaponRecords = 16;
+constexpr uint32_t kWeaponRecordSize = 0x1E0;
+constexpr uint32_t kDataClip = 0x60;  // int: the clip size
+constexpr uint32_t kWeaponRecordsAt = 0x8227D330;  // record 0, in GlobData.bin, mapped at 0x820BE000
+
 // UI object, the front end the menu hooks get in ebp
 constexpr uint32_t kUi = 0x2D199C;
 constexpr uint32_t kCallWaits = 0x374;  // a call to the game waits, the page script's FEFunctionTrigger
