@@ -92,7 +92,9 @@ struct AnimationKind {
     bool game::Options::*toggle;
 };
 constexpr AnimationKind kAnimationKinds[] = {
-    {"reload", {"_101"}, {kWeaponReloading}, &game::Options::reload_adjust},
+    // a magazine reload in kWeaponReloading; a shotgun's shell by shell, 180 going in, 502 its shells (state 6), 182
+    // coming out (state 8)
+    {"reload", {"_101", "_180", "_502", "_182"}, {kWeaponReloading, 5, 6, 8}, &game::Options::reload_adjust},
     {"draw", {"_102"}, {}, &game::Options::draw_adjust},  // the weapon coming up, after a switch
 };
 constexpr size_t kKinds = std::size(kAnimationKinds);
