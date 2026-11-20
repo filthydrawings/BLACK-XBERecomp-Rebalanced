@@ -1,6 +1,8 @@
 // Research logger, temporary: finds the guest fields that hold a weapon's clip size, range and damage and a
 // character's health. Appends to logs\research.log beside the exe, a line === launch at each start.
 //   F7: the weapon object and its data block, as words
+//   F8: every weapon record beside the one in hand, and every character type with its hit zone shares
+//   each change of the weapon in hand: its record
 //   F6: the player, the weapon and its data, the words that changed since the last F6
 //   the player's health as it starts: its health, the +0x3D0 it came from and the difficulty
 //   each hit that lowers a character's health, at the stores of the damage functions: before, after, difficulty
@@ -39,6 +41,7 @@ constexpr uint32_t kWeaponBytes = 0x400;
 constexpr uint32_t kDataBytes = 0x400;
 constexpr int kDiffKey = VK_F6;
 constexpr int kDumpKey = VK_F7;
+constexpr int kTablesKey = VK_F8;
 
 // character
 constexpr uint32_t kCharacterHealth = 0x2F0;     // float
@@ -53,6 +56,18 @@ constexpr uint32_t kTypeZones = 0x3C;
 constexpr uint32_t kZoneSize = 12;
 constexpr int kZonesLogged = 16;  // entries written the first time a table is seen
 std::vector<uint32_t> g_zone_tables;
+
+// character types sit in one array, by id
+constexpr uint32_t kTypeSize = 0x40;
+constexpr uint32_t kMostTypes = 128;
+uint32_t g_type_base;  // type 0, from the last type a hit saw
+
+// weapon records sit in one array; every record seen so far has these
+constexpr uint32_t kWeaponRecordSize = 0x1E0;
+constexpr uint32_t kMostRecords = 64;
+bool IsWeaponRecord(uint32_t r) {
+    return r && R32(r + 4) == 1 && G<float>(r + 0xC) == 0.5f && G<float>(r + 0x1C) == 1.0f;
+}
 
 // characters that were hit, with their health before the first hit
 struct Character {
@@ -167,6 +182,50 @@ void LogZones(FILE* f, uint32_t table) {
     }
 }
 
+// every record of the weapon array around one: its known fields, then all its words in hex
+void LogWeaponTable(FILE* f, uint32_t data) {
+    if (!IsWeaponRecord(data)) {
+        std::fprintf(f, "weapon table: the record in hand %08X does not look like one\n", data);
+        return;
+    }
+    uint32_t first = data;
+    for (uint32_t left = kMostRecords; left && IsWeaponRecord(first - kWeaponRecordSize); left--)
+        first -= kWeaponRecordSize;
+    std::fprintf(f, "weapon table from %08X, in hand %08X:\n", first, data);
+    uint32_t r = first;
+    for (uint32_t i = 0; i < kMostRecords && IsWeaponRecord(r); i++, r += kWeaponRecordSize) {
+        std::fprintf(f, "record %2u %08X%s: clip %d ammo type %d  +14 %g +18 %g +44 %g +48 %g +68 %g  +160 %d +164 %d +168 %d\n",
+                     i, r, r == data ? " (in hand)" : "", int32_t(R32(r + 0x60)), int32_t(R32(r + 0x64)),
+                     G<float>(r + 0x14), G<float>(r + 0x18), G<float>(r + 0x44), G<float>(r + 0x48), G<float>(r + 0x68),
+                     int32_t(R32(r + 0x160)), int32_t(R32(r + 0x164)), int32_t(R32(r + 0x168)));
+        std::fprintf(f, "  words");
+        for (uint32_t at = 0; at < kWeaponRecordSize; at += 4) std::fprintf(f, " %08X", R32(r + at));
+        std::fprintf(f, "\n");
+    }
+}
+
+// every character type by id from the one a hit saw: its zone shares, front/back, and kill flags
+void LogTypes(FILE* f) {
+    if (!g_type_base) {
+        std::fprintf(f, "character types: hit an enemy first\n");
+        return;
+    }
+    std::fprintf(f, "character types from %08X:\n", g_type_base);
+    for (uint32_t id = 0; id < kMostTypes; id++) {
+        uint32_t type = g_type_base + id * kTypeSize;
+        if (R32(type + kTypeId) != id) continue;
+        uint32_t zones = R32(type + kTypeZones);
+        uint32_t table = zones ? R32(zones) : 0;
+        std::fprintf(f, "type %3u %08X zones %08X:", id, type, table);
+        for (int zone = 0; table && zone < kZonesLogged; zone++) {
+            uint32_t entry = table + zone * kZoneSize;
+            std::fprintf(f, " %d=%g/%g%s%s", zone, G<float>(entry), G<float>(entry + 4), G<uint8_t>(entry + 8) ? "k" : "",
+                         G<uint8_t>(entry + 9) ? "K" : "");
+        }
+        std::fprintf(f, "\n");
+    }
+}
+
 }  // namespace
 
 // the damage functions' health stores, each before its write: the character's register and the new health's.
@@ -199,12 +258,15 @@ void HitDamage(X86Context& ctx, uint8_t*) {
     uint32_t character = ctx.ebx;
     uint32_t type = R32(character + kCharacterType);
     uint32_t table = type ? R32(R32(type + kTypeZones)) : 0;
+    if (type) g_type_base = type - R32(type + kTypeId) * kTypeSize;
+    uint32_t held = R32(Player() + kPlayerWeapon);
+    uint32_t record = held ? R32(held + kWeaponData) : 0;
     int zone = int8_t(G<uint8_t>(ctx.ebp + 0x18));
     uint32_t entry = table + uint32_t(zone) * kZoneSize;
-    std::fprintf(f, "damage %g: character %08X type %08X id %u zone %d front %g back %g, attacker %08X%s, difficulty %u\n",
+    std::fprintf(f, "damage %g: character %08X type %08X id %u zone %d front %g back %g, attacker %08X%s, weapon %08X, difficulty %u\n",
                  ctx.xmm[0].f[0], character, type, type ? R32(type + kTypeId) : 0, zone,
                  table ? G<float>(entry) : 0.0f, table ? G<float>(entry + 4) : 0.0f, ctx.esi,
-                 ctx.esi == Player() ? " (the player)" : "", Difficulty());
+                 ctx.esi == Player() ? " (the player)" : "", record, Difficulty());
     LogZones(f, table);
     std::fflush(f);
 }
@@ -252,6 +314,17 @@ void Tick() {
         std::fprintf(f, "\n=== frame %u: F7, weapon %08X\n", frame, weapon);
         Dump(f, "weapon", weapon, kWeaponBytes);
         Dump(f, "weapon data", data, kDataBytes);
+    }
+
+    static uint32_t in_hand;
+    if (data != in_hand) {
+        std::fprintf(f, "weapon in hand: record %08X, clip %d\n", data, data ? int32_t(R32(data + 0x60)) : 0);
+        in_hand = data;
+    }
+    if (Pressed(kTablesKey)) {
+        std::fprintf(f, "\n=== frame %u: F8\n", frame);
+        LogWeaponTable(f, data);
+        LogTypes(f);
     }
 
     static Snapshot snapshots[] = {{"player"}, {"weapon"}, {"weapon data"}};
