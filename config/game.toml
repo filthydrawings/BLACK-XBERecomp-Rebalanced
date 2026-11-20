@@ -575,6 +575,106 @@ at = 0x2139D
 call = "HudItem"
 on_false = 0x213A0
 
+# src/game/research.cpp, each call of NtCreateFile: its name before, its result after (temporary)
+[[hook]]
+at = 0x2337A
+call = "FileOpening"
+
+[[hook]]
+at = 0x2337A
+call = "FileOpened"
+after = true
+
+[[hook]]
+at = 0x2379B
+call = "FileOpening"
+
+[[hook]]
+at = 0x2379B
+call = "FileOpened"
+after = true
+
+[[hook]]
+at = 0x23D87
+call = "FileOpening"
+
+[[hook]]
+at = 0x23D87
+call = "FileOpened"
+after = true
+
+[[hook]]
+at = 0x24131
+call = "FileOpening"
+
+[[hook]]
+at = 0x24131
+call = "FileOpened"
+after = true
+
+[[hook]]
+at = 0x25C46
+call = "FileOpening"
+
+[[hook]]
+at = 0x25C46
+call = "FileOpened"
+after = true
+
+[[hook]]
+at = 0x25D09
+call = "FileOpening"
+
+[[hook]]
+at = 0x25D09
+call = "FileOpened"
+after = true
+
+[[hook]]
+at = 0x25DC6
+call = "FileOpening"
+
+[[hook]]
+at = 0x25DC6
+call = "FileOpened"
+after = true
+
+[[hook]]
+at = 0x25EAF
+call = "FileOpening"
+
+[[hook]]
+at = 0x25EAF
+call = "FileOpened"
+after = true
+
+[[hook]]
+at = 0x26D76
+call = "FileOpening"
+
+[[hook]]
+at = 0x26D76
+call = "FileOpened"
+after = true
+
+[[hook]]
+at = 0x278040
+call = "FileOpening"
+
+[[hook]]
+at = 0x278040
+call = "FileOpened"
+after = true
+
+[[hook]]
+at = 0x2781FB
+call = "FileOpening"
+
+[[hook]]
+at = 0x2781FB
+call = "FileOpened"
+after = true
+
 # src/game/research.cpp, a character's health as it starts (temporary)
 [[hook]]
 at = 0x1DF229

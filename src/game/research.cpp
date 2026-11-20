@@ -16,9 +16,11 @@
 //   F11: reload animations at twice their speed, on or off, to see whether reloads shorten with them
 //   each change of the weapon in hand's state or the player's animation
 //   F5 / Shift+F5: the weapon in hand becomes the next / previous weapon of the game, full clip and spare ammo
+//   every file the game opens, weapon files in black.log too
 // Nothing in the game is changed, but F9's candidate, F11's reload speed and F5's weapon.
 #include <algorithm>
 #include <chrono>
+#include <cctype>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -37,6 +39,7 @@
 #endif
 #include <windows.h>
 
+#include "core/log.h"
 #include "game/layout.h"
 #include "game/rebalance.h"
 #include "game/weapon_kinds.h"
@@ -562,6 +565,59 @@ void GiveWeapon(FILE* f, X86Context& ctx, int step, uint32_t frame) {
                  Rounds(weapon), Spare(weapon, data));
     std::fflush(f);
 }
+
+
+// Every file the game opens through NtCreateFile, at each of its 11 calls: the name before the call, the result after
+// it. All go to research.log, those of the levels' guns and weapons to black.log as well, with the weapon in hand, to
+// see which weapon files a level loads and when
+std::string g_opening;
+uint32_t g_opening_root;
+
+bool WeaponFile(std::string name) {
+    for (char& c : name) c = char(std::tolower(uint8_t(c)));
+    for (const char* part : {"fpguns", "gun", "wpn", "weapon", "bg1_", "ammo", "hud"})
+        if (name.find(part) != std::string::npos) return true;
+    return false;
+}
+
+}  // namespace
+
+// at each call of NtCreateFile: [esp+8] its OBJECT_ATTRIBUTES, +0 the root, +4 the name (length, room, text)
+void FileOpening(X86Context& ctx, uint8_t*) {
+    uint32_t attrs = R32(ctx.esp + 8);
+    uint32_t name = attrs ? R32(attrs + 4) : 0;
+    uint32_t text = name ? R32(name + 4) : 0;
+    uint16_t length = name ? G<uint16_t>(name) : 0;
+    g_opening.assign(text ? static_cast<const char*>(HostPtr(text)) : "", text ? length : 0);
+    g_opening_root = attrs ? R32(attrs) : 0;
+}
+
+// after it: eax its status
+void FileOpened(X86Context& ctx, uint8_t*) {
+    FILE* f = Log();
+    bool weapon_file = WeaponFile(g_opening);
+    if (!f && !weapon_file) return;
+    static auto start = std::chrono::steady_clock::now();
+    double at = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    std::string host = ResolvePath(g_opening, g_opening_root);
+    std::error_code ec;
+    uint64_t size = host.empty() ? 0 : uint64_t(std::filesystem::file_size(host, ec));
+    if (ec) size = 0;
+    uint32_t world = R32(kWorld);
+    uint32_t weapon = world ? R32(Player() + kPlayerWeapon) : 0;
+    const char* in_hand = weapon ? RecordName(R32(weapon + kWeaponData)) : "-";
+    int level = world ? int(G<uint8_t>(world + kWorldLevel)) : -1;
+    if (f) {
+        std::fprintf(f, "file %.2f s: %s, %llu bytes, status %08X, level %d, in hand %s\n", at, g_opening.c_str(),
+                     static_cast<unsigned long long>(size), ctx.eax, level, in_hand);
+        std::fflush(f);
+    }
+    if (weapon_file)
+        LOGR("file %.2f s: %s, %llu bytes, status %08X, level %d, in hand %s", at, g_opening.c_str(),
+             static_cast<unsigned long long>(size), ctx.eax, level, in_hand);
+}
+
+namespace {
 
 }  // namespace
 
