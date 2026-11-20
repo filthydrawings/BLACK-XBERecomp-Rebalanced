@@ -1,7 +1,9 @@
 // New Game+: the level load (sub_001EDC90) sets kWorldNewGamePlus for a story level when the game was finished on
 // this difficulty or a harder one, or on Black Ops, and kWorldStartWeapon when Black Ops was finished or is played.
-// What it decided is kept here as it decides it. In a New Game+ level the New Game+ Settings apply, each read of the
-// flag the game makes for them answered by its setting; any other level is the game's own:
+// What it decided is kept here as it decides it. The settings unlock once the profile has the game finished on a
+// difficulty (kCompletions, what the level load reads); locked, the game is its own everywhere, Black Ops' New
+// Game+ included. Unlocked, in a New Game+ level each read of the flag the game makes for them is answered by its
+// setting; any other level is the game's own:
 //   Silver weapons: the flag itself, written off at the load. It picks the level's data with the silver weapons
 //     (sub_001EDC90, sub_001B7390, sub_001D3790, sub_001EBD60) and the silver kind of a weapon given (sub_001D4F30),
 //     so it holds from the next level loaded
@@ -25,19 +27,32 @@ using namespace layout;
 namespace {
 
 constexpr uint32_t kCharacterWeapons = 0x298;  // -> the weapon objects, the first the primary
+// the loaded profile's progress by difficulty, kCompletionSize each: +0 int, 2 or more the game finished on it.
+// All 0 before a profile loads
+constexpr uint32_t kCompletions = 0x2D0E64;
+constexpr uint32_t kCompletionSize = 0x100;
+constexpr uint32_t kDifficulties = 4;
+constexpr int32_t kFinished = 2;
 constexpr int kSpareClips = 4;
 
 bool g_active;
 uint32_t g_given = UINT32_MAX;  // the kind the player was just started with, UINT32_MAX none
 
-bool InfiniteAmmo() { return g_active && game::Opt().ngp_infinite_ammo; }
+bool Unlocked() {
+    for (uint32_t d = 0; d < kDifficulties; d++)
+        if (int32_t(R32(kCompletions + d * kCompletionSize)) >= kFinished) return true;
+    return false;
+}
+
+// the game's own while locked
+bool InfiniteAmmo() { return g_active && (!Unlocked() || game::Opt().ngp_infinite_ammo); }
 
 void SetLow(uint32_t& reg, bool on) { reg = (reg & ~0xFFu) | (on ? 1u : 0u); }
 
 // the hash of the player's first weapon, hi:lo in two registers, the chosen kind's when this level has its model
 void StartWeapon(X86Context& ctx, uint32_t& lo, uint32_t& hi) {
     uint32_t choice = game::Opt().ngp_start_weapon;
-    if (ctx.ebx != Player() || !g_active || !choice || choice > kWeaponRecords) return;
+    if (ctx.ebx != Player() || !g_active || !Unlocked() || !choice || choice > kWeaponRecords) return;
     uint32_t record = choice - 1;
     uint32_t kind = weapon_kinds::OfRecord(WeaponRecord(record));
     uint32_t entry = weapon_kinds::Entry(kind);
@@ -66,15 +81,20 @@ bool Active() { return g_active; }
 
 }  // namespace new_game_plus
 
+bool game::NewGamePlusUnlocked() { return Unlocked(); }
+
 // sub_001EDC90 at 0x1EE1FF, ebp the world: both flags set, the level's data not looked up yet
 void NewGamePlusFlags(X86Context& ctx, uint8_t*) {
     uint32_t world = ctx.ebp;
     uint8_t level = G<uint8_t>(world + kWorldLevel);
     g_active = level < kStoryLevels && G<uint8_t>(world + kWorldNewGamePlus);
-    bool silver = g_active && game::Opt().ngp_silver_weapons;
+    bool silver = g_active && (!Unlocked() || game::Opt().ngp_silver_weapons);
     if (g_active && !silver) G<uint8_t>(world + kWorldNewGamePlus) = 0;
-    LOGI("new game+: level %u, %s, silver weapons %s, infinite ammo %s, start weapon flag %u", level,
-         g_active ? "on" : "off", silver ? "on" : "off", InfiniteAmmo() ? "on" : "off",
+    LOGI("new game+: level %u, %s, settings %s (finished %d %d %d %d), silver weapons %s, infinite ammo %s, start "
+         "weapon flag %u",
+         level, g_active ? "on" : "off", Unlocked() ? "unlocked" : "locked", int32_t(R32(kCompletions)),
+         int32_t(R32(kCompletions + kCompletionSize)), int32_t(R32(kCompletions + 2 * kCompletionSize)),
+         int32_t(R32(kCompletions + 3 * kCompletionSize)), silver ? "on" : "off", InfiniteAmmo() ? "on" : "off",
          G<uint8_t>(world + kWorldStartWeapon));
 }
 

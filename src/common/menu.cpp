@@ -297,7 +297,11 @@ constexpr Row kSettingsRows[] = {
 };
 
 // what a row does, shown in the F10 panel's hint line while it is hovered or focused; empty for none
+bool Greyed(int id);
+
 const char* Description(int id) {
+    if ((id == kNgpSilver || id == kNgpAmmo || id == kNgpStartWeapon) && Greyed(id))
+        return "Complete the game on any difficulty to unlock.";
     switch (id) {
         case kEnemyRebalance:
             return "Enemies take fewer hits to kill, from balance.toml. Best with realistic clip sizes.";
@@ -395,10 +399,11 @@ bool* ToggleFlag(Settings& s, int id) {
 bool DisplayRow(int id) { return id == kMonitor || id == kDisplayMode || id == kResolution; }
 
 // shown dimmed and left as it is: HDR output without an HDR display, per difficulty enemy rebalancing without
-// enemy rebalancing
+// enemy rebalancing, the New Game+ settings before the game is finished on a difficulty
 bool Unsupported(int id) { return id == kHdrOutput && !game::g_hdr_display; }
 bool Greyed(int id) {
-    return Unsupported(id) || (id == kPerDifficultyRebalance && !game::Opt().enemy_rebalance);
+    bool locked = (id == kNgpSilver || id == kNgpAmmo || id == kNgpStartWeapon) && !game::NewGamePlusUnlocked();
+    return Unsupported(id) || locked || (id == kPerDifficultyRebalance && !game::Opt().enemy_rebalance);
 }
 
 std::string g_display_monitor;  // the held monitor, beside the held display settings

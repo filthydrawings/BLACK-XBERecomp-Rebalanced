@@ -77,5 +77,6 @@ inline std::atomic<bool> g_hide_hud{false};  // the toggle HUD key: the gameplay
 inline std::atomic<bool> g_focus_paused{false};  // the game thread waits for the window's focus
 inline std::atomic<uint32_t> g_focus_pauses{0};  // focus pauses ended so far
 void WaitWhileUnfocused();  // focus_pause.cpp: game thread, before the present
+bool NewGamePlusUnlocked();  // new_game_plus.cpp: the profile loaded has the game finished on a difficulty
 
 }  // namespace game
