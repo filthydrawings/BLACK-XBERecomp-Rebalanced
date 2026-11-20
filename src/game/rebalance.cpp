@@ -185,7 +185,7 @@ void Load() {
                 g_settings[id][d][kRowWeapons[i]] = Shares{(*front)[i], back ? (*back)[i] : (*front)[i]};
         }
     }
-    LOGI("balance.toml: %zu enemy types set", g_settings.size());
+    LOGR("balance.toml: %zu enemy types set", g_settings.size());
 }
 
 // the field applied, by its toggle

@@ -67,7 +67,7 @@ void StartWeapon(X86Context& ctx, uint32_t& lo, uint32_t& hi) {
         LOGW("new game+: this level has no model for %s, the game's start weapon", kWeaponNames[record]);
         return;
     }
-    LOGI("new game+: starting with %s (kind %u) for %08X%08X", kWeaponNames[record], kind, hi, lo);
+    LOGR("new game+: starting with %s (kind %u) for %08X%08X", kWeaponNames[record], kind, hi, lo);
     lo = R32(entry);
     hi = R32(entry + 4);
     g_given = kind;
@@ -90,7 +90,7 @@ void NewGamePlusFlags(X86Context& ctx, uint8_t*) {
     g_active = level < kStoryLevels && G<uint8_t>(world + kWorldNewGamePlus);
     bool silver = g_active && (!Unlocked() || game::Opt().ngp_silver_weapons);
     if (g_active && !silver) G<uint8_t>(world + kWorldNewGamePlus) = 0;
-    LOGI("new game+: level %u, %s, settings %s (finished %d %d %d %d), silver weapons %s, infinite ammo %s, start "
+    LOGR("new game+: level %u, %s, settings %s (finished %d %d %d %d), silver weapons %s, infinite ammo %s, start "
          "weapon flag %u",
          level, g_active ? "on" : "off", Unlocked() ? "unlocked" : "locked", int32_t(R32(kCompletions)),
          int32_t(R32(kCompletions + kCompletionSize)), int32_t(R32(kCompletions + 2 * kCompletionSize)),
@@ -127,6 +127,6 @@ void StartWeaponAmmo(X86Context& ctx, uint8_t*) {
         uint16_t& left = G<uint16_t>(spare + R32(data + kDataAmmoType) * 2);
         left = std::max<uint16_t>(left, uint16_t(std::min(clip * kSpareClips, 0xFFFF)));
     }
-    LOGI("new game+: start weapon clip %d, spare %u", clip,
+    LOGR("new game+: start weapon clip %d, spare %u", clip,
          spare && data ? G<uint16_t>(spare + R32(data + kDataAmmoType) * 2) : 0);
 }
