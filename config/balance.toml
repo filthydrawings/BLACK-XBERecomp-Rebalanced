@@ -5,7 +5,8 @@
 # Each part applies only with its toggle on, in the game's Recomp Settings > Balancing Settings (or F10), and the
 # toggles take effect at once: Enemy rebalancing (the hits tables), Per difficulty enemy rebalancing (off, every
 # difficulty uses [normal]), Realistic clip sizes (clip), Weapon range adjustments (range), Recoil adjustments
-# (recoil), Reload speed adjustments (reload). A clip change shows from the next reload or pickup.
+# (recoil), Reload speed adjustments (reload), Weapon switch speed adjustments (draw). A clip change shows from
+# the next reload or pickup.
 #
 # HITS TO KILL
 # One row per enemy type, one number per weapon: how many body hits that weapon needs to kill that enemy.
@@ -73,24 +74,26 @@ type_40_back = [  1,   1,   1,   1,   2,   2,   1,   2,   1,   1,   1,   1,   1,
 #   recoil    record +0x68, confirmed: the kick of each shot, higher kicks more. Applied with Recoil adjustments
 #   reload    reload speed, 1.0 = the game's, 2.0 = twice as fast, 0.5 = half: the reload animation plays at that
 #             speed and the clip refills with it, sound in step. 0.25 to 4. Applied with Reload speed adjustments
+#   draw      weapon switch speed, the same way: the animation of the weapon coming up after a switch. 0.25 to 4,
+#             1.0 or left out = the game's. Applied with Weapon switch speed adjustments
 #   the fire interval (record +0x20, seconds between shots) is not editable on purpose: a change puts the
 #   weapon's animations out of step with its shots
 #   spread: no record field found that changes it (all 22 candidates tried), so not editable
-# weapon  =   clip  ammo  range  recoil  reload
+# weapon  =   clip  ammo  range  recoil  reload  draw
 [weapons]
-dc3elite = { clip = 15,  ammo = 0, range = 80,   recoil = 5,    reload = 1.0 }
-spas12   = { clip = 6,   ammo = 1, range = 45,   recoil = 9,    reload = 1.0 }
-sniper   = { clip = 5,   ammo = 6, range = 1000, recoil = 1,    reload = 1.0 }
-uzi      = { clip = 30,  ammo = 2, range = 85,   recoil = 5.3,  reload = 1.0 }
-g36c     = { clip = 30,  ammo = 3, range = 105,   recoil = 5.1,  reload = 1.0 }
-ak47     = { clip = 30,  ammo = 3, range = 100,   recoil = 5.5,  reload = 1.5 }
-rpg      = { clip = 1,   ammo = 4, range = 1000, recoil = 9,    reload = 1.0 }
-launcher = { clip = 1,   ammo = 5, range = 1000, recoil = 9,    reload = 1.0 }
-mac10    = { clip = 30,  ammo = 2, range = 75,   recoil = 5.0,  reload = 1.0 }
-p90      = { clip = 50,  ammo = 3, range = 75,   recoil = 5.4,  reload = 1.0 }
-m249     = { clip = 150, ammo = 8, range = 100,  recoil = 12,   reload = 1.0 }
-magnum   = { clip = 6,   ammo = 9, range = 70,   recoil = 10,   reload = 1.0 }
-m16      = { clip = 30,  ammo = 3, range = 120,   recoil = 5.0,  reload = 1.0 }
-rem870   = { clip = 8,   ammo = 1, range = 45,   recoil = 9,    reload = 1.0 }
-glock    = { clip = 17,  ammo = 0, range = 80,   recoil = 5,    reload = 1.0 }
-mp5      = { clip = 30,  ammo = 2, range = 85, recoil = 5.5,  reload = 1.0 }
+dc3elite = { clip = 15,  ammo = 0, range = 80,   recoil = 5,    reload = 1.0, draw = 1.0 }
+spas12   = { clip = 6,   ammo = 1, range = 45,   recoil = 9,    reload = 1.0, draw = 1.0 }
+sniper   = { clip = 5,   ammo = 6, range = 1000, recoil = 1,    reload = 1.0, draw = 1.0 }
+uzi      = { clip = 30,  ammo = 2, range = 85,   recoil = 5.3,  reload = 1.0, draw = 1.0 }
+g36c     = { clip = 30,  ammo = 3, range = 105,   recoil = 5.1,  reload = 1.0, draw = 1.0 }
+ak47     = { clip = 30,  ammo = 3, range = 100,   recoil = 5.5,  reload = 1.5, draw = 1.0 }
+rpg      = { clip = 1,   ammo = 4, range = 1000, recoil = 9,    reload = 1.0, draw = 1.0 }
+launcher = { clip = 1,   ammo = 5, range = 1000, recoil = 9,    reload = 1.0, draw = 1.0 }
+mac10    = { clip = 30,  ammo = 2, range = 75,   recoil = 5.0,  reload = 1.0, draw = 1.0 }
+p90      = { clip = 50,  ammo = 3, range = 75,   recoil = 5.4,  reload = 1.0, draw = 1.0 }
+m249     = { clip = 150, ammo = 8, range = 100,  recoil = 12,   reload = 1.0, draw = 1.0 }
+magnum   = { clip = 6,   ammo = 9, range = 70,   recoil = 10,   reload = 1.0, draw = 1.0 }
+m16      = { clip = 30,  ammo = 3, range = 120,   recoil = 5.0,  reload = 1.0, draw = 1.0 }
+rem870   = { clip = 8,   ammo = 1, range = 45,   recoil = 9,    reload = 1.0, draw = 1.0 }
+glock    = { clip = 17,  ammo = 0, range = 80,   recoil = 5,    reload = 1.0, draw = 1.0 }
+mp5      = { clip = 30,  ammo = 2, range = 85, recoil = 5.5,  reload = 1.0, draw = 1.0 }

@@ -4,7 +4,7 @@
 // front and from the back, 1.02 over the hits. Every hit's entry is written just before the game reads it, with the
 // setting for the difficulty played, or the game's own without one.
 // The Balancing Settings toggles (game::Options) pick what applies, and take effect as they change.
-// Each weapon's reload speed plays its reload animations faster or slower, the clip refilling with them.
+// Each weapon's reload and draw speeds play its reload and weapon switch animations faster or slower.
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -82,7 +82,7 @@ using FieldValues = std::array<std::optional<double>, kWeaponRecords>;
 std::array<FieldValues, kFields> g_weapons;  // by field, from the file
 // Animation speeds: an animation of the player's of a kind, by its name, plays at its weapon's speed for that kind.
 // A reload plays the reload animation, and the clip refills as the animation reaches the point it does, so the
-// animation's playback speed sets the reload's
+// animation's playback speed sets the reload's; a weapon switch plays the new weapon's draw animation
 struct AnimationKind {
     const char* key;     // its speed in each weapon's [weapons] entry
     const char* suffix;  // the end of its animations' names
@@ -91,6 +91,7 @@ struct AnimationKind {
 };
 constexpr AnimationKind kAnimationKinds[] = {
     {"reload", "_101", true, &game::Options::reload_adjust},
+    {"draw", "_102", false, &game::Options::draw_adjust},  // the weapon coming up, after a switch
 };
 constexpr size_t kKinds = std::size(kAnimationKinds);
 std::array<FieldValues, kKinds> g_speeds;  // by kind, clamped to kLeastSpeed to kMostSpeed

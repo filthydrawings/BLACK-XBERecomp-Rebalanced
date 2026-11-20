@@ -432,7 +432,7 @@ void TrackReloads(FILE* f, uint32_t weapon, uint32_t data, uint32_t frame) {
     last_state = state;
 }
 
-// F11: the player's reload animations at kReloadSpeed whatever the settings (rebalance::OverrideAnimationSpeeds), to
+// F11: the player's reload and weapon switch animations at kReloadSpeed whatever the settings (rebalance::OverrideAnimationSpeeds), to
 // compare with the game's
 constexpr int kReloadSpeedKey = VK_F11;
 constexpr float kReloadSpeed = 2.0f;
@@ -645,7 +645,7 @@ void OverlayLines(std::vector<std::string>& lines) {
     if (Log()) lines.push_back("WEAPON LOGGING: ON");
     if (g_note && std::chrono::steady_clock::now() < g_note_until) lines.push_back(g_note);
     if (Log()) lines.push_back(g_exaggerate_line);
-    if (Log()) lines.push_back(g_reload_speed_on ? "RELOAD x2: ON" : "RELOAD x2: OFF");
+    if (Log()) lines.push_back(g_reload_speed_on ? "RELOAD+SWITCH x2: ON" : "RELOAD+SWITCH x2: OFF");
     if (Log() && R32(kWorld)) {
         std::string line = WeaponLine(R32(Player() + kPlayerWeapon));
         if (!line.empty()) lines.push_back(line);
@@ -711,7 +711,7 @@ void Tick() {
     }
     if (Pressed(kReloadSpeedKey)) {
         g_reload_speed_on = !g_reload_speed_on;
-        Note(g_reload_speed_on ? "F11: RELOAD x2 ON" : "F11: RELOAD x2 OFF");
+        Note(g_reload_speed_on ? "F11: RELOAD+SWITCH x2 ON" : "F11: RELOAD+SWITCH x2 OFF");
         std::fprintf(f, "\n=== frame %u: F11, reload x%g %s\n", frame, kReloadSpeed, g_reload_speed_on ? "on" : "off");
     }
     if (Pressed(kWeaponKey)) {
