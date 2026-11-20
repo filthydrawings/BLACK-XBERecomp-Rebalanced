@@ -92,5 +92,6 @@ X86_FUNC(sub_001E0EB0) {
         Return(ctx, 0, 5);
         return;
     }
+    LOGR("weapon dropped: kind %u, pickup model %08X", kind, model);
     __imp__sub_001E0EB0(ctx, base);
 }

@@ -18,6 +18,7 @@
 //   F5 / Shift+F5: the weapon in hand becomes the next / previous weapon of the game, full clip and spare ammo
 //   every file the game opens, weapon files in black.log too
 //   each stage's pickup list and loaded file slots, in black.log too
+//   a borrowed weapon's pickup model loaded from another level (BorrowPickupModel)
 // Nothing in the game is changed, but F9's candidate, F11's reload speed and F5's weapon.
 #include <algorithm>
 #include <chrono>
@@ -581,9 +582,10 @@ void LogPickups(FILE* f, X86Context& ctx) {
     static uint32_t logged;
     uint32_t pickups = R32(kPickups);
     uint32_t list = pickups ? R32(pickups + kPickupList) : 0;
-    if (!list || list == logged) return;
-    logged = list;
     uint32_t world = R32(kWorld);
+    // once the stage's own pack is in, its models with it
+    if (!list || list == logged || !world || !R32(world + 0x5B34)) return;
+    logged = list;
     uint8_t count = G<uint8_t>(list);
     uint32_t entries = R32(list + 8);
     uint32_t models = R32(pickups + kPickupModels);
@@ -618,6 +620,180 @@ void LogPickups(FILE* f, X86Context& ctx) {
     std::fprintf(f, "  %u of %u slots with a file\n", used, kFileSlotCount);
     LOGR("file slots: %u of %u with a file", used, kFileSlotCount);
     std::fflush(f);
+}
+
+// Research: a borrowed weapon's pickup model, from another level's Guns.bin (Guns_s.bin) loaded as the stage loads its
+// own (sub_001EDC90: sub_001F37E0 queues it in loading slot 8, sub_001D3790 files it as a type 0xC slot keyed by level
+// and New Game+, its models found by name from then on). Once the stage's own pack is in and the loading slot is
+// idle, the pack with the model of the weapon in hand, when the stage lacks it, is queued the same way, its slot then
+// given a key of its own and a use count of 1. Every step, the slots and the pack places are logged; anything full or
+// unexpected leaves the weapon to vanish when dropped, as before.
+constexpr uint32_t kQueue = 0x1F37E0;       // eax the loading slot, ecx the path, edx [kResources], 6 arguments
+constexpr uint32_t kFileIn = 0x1D3790;      // the loading slot's callback: files the pack in a type 0xC slot
+constexpr uint32_t kGunsSlot = 8;           // the loading slot the stage's Guns.bin uses
+constexpr uint32_t kLoadSize = 0x13C;       // a loading slot: +0x134 byte busy
+constexpr uint32_t kLoadBusy = 0x134;
+constexpr uint32_t kSlots = 0xD14;          // in [kResources]: kSlotCount of kSlotSize: +0 type, +4 the file, +8 key, +0xA uses
+constexpr uint32_t kSlotCount = 17;
+constexpr uint32_t kSlotSize = 0x0C;
+constexpr uint32_t kGunsType = 0x0C;
+constexpr uint32_t kPackPlaces = 0xC64;     // in [kResources]: kPackPlaceCount places each of the two lists
+constexpr uint32_t kPackPlaces2 = 0xC90;
+constexpr uint32_t kPackPlaceCount = 11;
+constexpr uint32_t kWorldGuns = 0x5B34;     // the stage's own pack, once in
+constexpr uint32_t kWorldNewGamePlusFlag = 0x5CB0;
+constexpr uint16_t kOurKey = 0x7E00;        // ours: 0x7E00 + the kind, a key no level has
+
+struct Borrow {
+    uint8_t kind = 0xFF;
+    uint32_t file = 0;      // the pack's file, once filed
+    int state = 0;          // 0 none, 1 queued, 2 filed, -1 given up
+};
+Borrow g_borrow;
+uint32_t g_borrow_world;
+uint32_t g_path;  // guest room for the path
+
+// the pickup of a kind: its model's name, false without one
+bool PickupModelName(uint8_t kind, uint32_t& lo, uint32_t& hi) {
+    uint32_t pickups = R32(kPickups);
+    uint32_t list = pickups ? R32(pickups + kPickupList) : 0;
+    uint8_t count = list ? G<uint8_t>(list) : 0;
+    uint32_t entries = list ? R32(list + 8) : 0;
+    for (uint8_t i = 0; i < count && entries; i++) {
+        uint32_t entry = entries + i * kPickupSize;
+        if (G<uint8_t>(entry + 0x10) != kind) continue;
+        lo = R32(entry + 8);
+        hi = R32(entry + 0xC);
+        return true;
+    }
+    return false;
+}
+
+// the Xbox path of a level's Guns.bin or Guns_s.bin holding that model, empty for none
+std::string PackWith(uint32_t lo, uint32_t hi) {
+    for (int level = 0; level < 100; level++) {
+        for (const char* suffix : {"", "_s"}) {
+            char name[96];
+            std::snprintf(name, sizeof name, "D:\\Levels\\Level_%02d\\Stg_0001\\Guns%s.bin", level, suffix);
+            std::string host = ResolvePath(name, 0);
+            if (host.empty()) continue;
+            FILE* f = _wfopen(std::filesystem::path(host).c_str(), L"rb");
+            if (!f) continue;
+            uint32_t entry[4];
+            bool found = false;
+            std::fseek(f, 0x100, SEEK_SET);
+            while (std::fread(entry, 4, 4, f) == 4 && (entry[1] >> 16) == 0x5446)
+                if (entry[0] == lo && entry[1] == hi) found = true;
+            std::fclose(f);
+            if (found) return name + 2;  // without D:, as the game's own path
+        }
+    }
+    return "";
+}
+
+void LogSlots(FILE* f, const char* when) {
+    uint32_t resources = R32(kResources);
+    if (!resources) return;
+    uint32_t used = 0;
+    std::fprintf(f, "slots %s:", when);
+    for (uint32_t s = 0; s < kSlotCount; s++) {
+        uint32_t slot = resources + kSlots + s * kSlotSize;
+        if (!R32(slot + 4)) continue;
+        used++;
+        std::fprintf(f, " [%u type %X file %08X key %04X uses %u]", s, R32(slot), R32(slot + 4), G<uint16_t>(slot + 8),
+                     G<uint16_t>(slot + 0xA));
+    }
+    uint32_t packs = 0, packs2 = 0;
+    for (uint32_t p = 0; p < kPackPlaceCount; p++) {
+        packs += R32(resources + kPackPlaces + p * 4) != 0;
+        packs2 += R32(resources + kPackPlaces2 + p * 4) != 0;
+    }
+    std::fprintf(f, "\n  %u of %u slots, pack places %u and %u of %u\n", used, kSlotCount, packs, packs2, kPackPlaceCount);
+    LOGR("borrow: slots %s: %u of %u, pack places %u and %u of %u", when, used, kSlotCount, packs, packs2,
+         kPackPlaceCount);
+    std::fflush(f);
+}
+
+void BorrowPickupModel(FILE* f, X86Context& ctx) {
+    uint32_t world = R32(kWorld);
+    uint32_t resources = R32(kResources);
+    if (!world || !resources || !R32(world + kWorldGuns)) return;
+    if (world != g_borrow_world || g_borrow.kind == 0xFF) {
+        if (world != g_borrow_world) {
+            LogSlots(f, "at a new level");
+            g_borrow = {};
+            g_borrow_world = world;
+        }
+    }
+    uint32_t weapon = R32(Player() + kPlayerWeapon);
+    if (!weapon) return;
+    uint8_t kind = G<uint8_t>(weapon + weapon_kinds::kWeaponKind);
+    uint16_t key = uint16_t(G<uint8_t>(world + kWorldLevel) | G<uint8_t>(world + kWorldNewGamePlusFlag) << 8);
+    if (g_borrow.state == 1) {
+        // filed: the type 0xC slot of the stage's key whose file is not the stage's own
+        for (uint32_t s = 0; s < kSlotCount; s++) {
+            uint32_t slot = resources + kSlots + s * kSlotSize;
+            uint32_t file = R32(slot + 4);
+            if (!file || R32(slot) != kGunsType || G<uint16_t>(slot + 8) != key || file == R32(world + kWorldGuns))
+                continue;
+            G<uint16_t>(slot + 8) = uint16_t(kOurKey + g_borrow.kind);
+            G<uint16_t>(slot + 0xA) = 1;
+            g_borrow.file = file;
+            g_borrow.state = 2;
+            std::fprintf(f, "borrow: kind %u filed in slot %u, file %08X, key now %04X\n", g_borrow.kind, s, file,
+                         kOurKey + g_borrow.kind);
+            LOGR("borrow: kind %u pack filed in slot %u", g_borrow.kind, s);
+            LogSlots(f, "after");
+            return;
+        }
+        return;
+    }
+    if (g_borrow.state != 0 || kind == g_borrow.kind) return;
+    uint32_t lo = 0, hi = 0;
+    if (!PickupModelName(kind, lo, hi)) return;
+    X86Context saved = ctx;
+    uint32_t model = CallGuest(ctx, kFindResource, {resources, lo, hi});
+    ctx = saved;
+    if (model) return;  // the stage has it
+    g_borrow.kind = kind;
+    g_borrow.state = -1;
+    std::fprintf(f, "\n=== borrow: kind %u (%s), pickup model %08X%08X not in this stage\n", kind,
+                 RecordName(R32(weapon + kWeaponData)), hi, lo);
+    LogSlots(f, "before");
+    if (G<uint8_t>(resources + kGunsSlot * kLoadSize + kLoadBusy)) {
+        std::fprintf(f, "borrow: the guns loading slot is busy, left\n");
+        g_borrow = {};
+        return;
+    }
+    uint32_t free_slots = 0, free_packs = 0, free_packs2 = 0;
+    for (uint32_t s = 0; s < kSlotCount; s++) free_slots += !R32(resources + kSlots + s * kSlotSize + 4);
+    for (uint32_t p = 0; p < kPackPlaceCount; p++) {
+        free_packs += !R32(resources + kPackPlaces + p * 4);
+        free_packs2 += !R32(resources + kPackPlaces2 + p * 4);
+    }
+    if (!free_slots || !free_packs || !free_packs2) {
+        std::fprintf(f, "borrow: no room (%u slots, %u and %u pack places free), the weapon vanishes when dropped\n",
+                     free_slots, free_packs, free_packs2);
+        LOGR("borrow: no room for kind %u's pack", kind);
+        return;
+    }
+    std::string path = PackWith(lo, hi);
+    if (path.empty()) {
+        std::fprintf(f, "borrow: no level's Guns.bin has the model\n");
+        LOGR("borrow: no level has kind %u's pickup model", kind);
+        return;
+    }
+    if (!g_path) g_path = mem::AllocSystem(0x100);
+    std::snprintf(static_cast<char*>(HostPtr(g_path)), 0x100, "%s", path.c_str());
+    std::fprintf(f, "borrow: queueing %s\n", path.c_str());
+    LOGR("borrow: kind %u's pickup model from %s", kind, path.c_str());
+    std::fflush(f);
+    ctx.eax = kGunsSlot;
+    ctx.ecx = g_path;
+    ctx.edx = resources;
+    CallGuest(ctx, kQueue, {1, kFileIn, world, 0x17, 1, 0x2000000});
+    ctx = saved;
+    g_borrow.state = 1;
 }
 
 
@@ -722,6 +898,7 @@ void BetweenFrames(X86Context& ctx) {
     g_give_step = 0;
     if (!f || !R32(kWorld)) return;
     LogPickups(f, ctx);
+    BorrowPickupModel(f, ctx);
     if (!step) return;
     static uint32_t swaps;
     GiveWeapon(f, ctx, step, ++swaps);
