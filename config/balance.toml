@@ -75,7 +75,7 @@ type_40_back = [  1,   1,   1,   1,   2,   2,   1,   2,   1,   1,   1,   1,   1,
 #             and animation fields are still being researched
 #   the fire interval (record +0x20, seconds between shots) is not editable on purpose: a change puts the
 #   weapon's animations out of step with its shots
-#   spread: candidate fields found, not confirmed yet, so not listed here
+#   spread: no record field found that changes it (all 22 candidates tried), so not editable
 # weapon  =   clip  ammo  range  recoil  reload
 [weapons]
 dc3elite = { clip = 15,  ammo = 0, range = 60,   recoil = 5,    reload = 1.0 }
