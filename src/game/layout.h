@@ -74,6 +74,8 @@ constexpr uint32_t kHitsEntrySize = 12;
 constexpr uint32_t kWeaponRecords = 16;
 constexpr uint32_t kWeaponRecordSize = 0x1E0;
 constexpr uint32_t kDataClip = 0x60;  // int: the clip size
+constexpr uint32_t kDataRange = 0x14;  // float: its range, unconfirmed
+constexpr uint32_t kDataFireGap = 0x20;  // float: seconds between shots, unconfirmed
 constexpr uint32_t kWeaponRecordsAt = 0x8227D330;  // record 0, in GlobData.bin, mapped at 0x820BE000
 
 // UI object, the front end the menu hooks get in ebp

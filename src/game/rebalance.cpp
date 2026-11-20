@@ -64,7 +64,21 @@ struct Type {
 };
 std::vector<Type> g_types;  // read at the first hit
 std::map<uint32_t, std::array<Row, kDifficulties>> g_settings;  // by type id
-std::array<std::optional<int32_t>, kWeaponRecords> g_clips;
+// a stat of the weapon records balance.toml sets, by its key in [weapons]
+struct WeaponField {
+    const char* key;
+    uint32_t offset;
+    bool is_float;
+};
+constexpr WeaponField kWeaponFields[] = {
+    {"clip", kDataClip, false},
+    {"range", kDataRange, true},
+    {"fire_gap", kDataFireGap, true},
+};
+constexpr size_t kFields = std::size(kWeaponFields);
+enum { kClipField, kRangeField, kFireGapField };
+using FieldValues = std::array<std::optional<double>, kWeaponRecords>;
+std::array<FieldValues, kFields> g_weapons;  // by field, from the file
 bool g_loaded;
 
 fs::path FilePath() {
@@ -100,7 +114,7 @@ std::optional<std::array<float, kRowSize>> ReadRow(const toml::node* node) {
 // [weapons] NAME = { clip = N, ... } and per difficulty table type_ID = [...], type_ID_back = [...]
 void Load() {
     g_settings.clear();
-    g_clips = {};
+    g_weapons = {};
     fs::path path = FilePath();
     if (!fs::exists(path)) {
         LOGI("balance.toml: none beside the exe, the game's own values");
@@ -118,7 +132,8 @@ void Load() {
             int w = WeaponIndex(name.str());
             const toml::table* weapon = node.as_table();
             if (w < 0 || !weapon) continue;
-            if (auto clip = (*weapon)["clip"].value<int64_t>()) g_clips[w] = int32_t(*clip);
+            for (size_t f = 0; f < kFields; f++)
+                if (auto v = (*weapon)[kWeaponFields[f].key].value<double>()) g_weapons[f][w] = *v;
         }
     }
     for (uint32_t d = 0; d < kDifficulties; d++) {
@@ -142,15 +157,33 @@ void Load() {
     LOGI("balance.toml: %zu enemy types set", g_settings.size());
 }
 
-void ApplyClips() {
-    static std::array<int32_t, kWeaponRecords> game;
+// the field applied: clip only for now
+bool Applies(size_t field) { return field == kClipField; }
+
+// a record's field as a number, and back
+double ReadField(uint32_t record, const WeaponField& f) {
+    return f.is_float ? double(G<float>(record + f.offset)) : double(int32_t(R32(record + f.offset)));
+}
+void WriteField(uint32_t record, const WeaponField& f, double v) {
+    if (f.is_float) G<float>(record + f.offset) = float(v);
+    else W32(record + f.offset, uint32_t(int32_t(std::lround(v))));
+}
+
+// each field applied: the file's value, else the game's; the game's are read once, before any write
+void ApplyWeapons() {
+    static std::array<std::array<double, kWeaponRecords>, kFields> game;
     static bool read;
     if (!RecordsMapped()) return;
     if (!read) {
-        for (uint32_t w = 0; w < kWeaponRecords; w++) game[w] = int32_t(R32(Record(w) + kDataClip));
+        for (size_t f = 0; f < kFields; f++)
+            for (uint32_t w = 0; w < kWeaponRecords; w++) game[f][w] = ReadField(Record(w), kWeaponFields[f]);
         read = true;
     }
-    for (uint32_t w = 0; w < kWeaponRecords; w++) W32(Record(w) + kDataClip, uint32_t(g_clips[w].value_or(game[w])));
+    for (size_t f = 0; f < kFields; f++) {
+        if (!Applies(f)) continue;
+        for (uint32_t w = 0; w < kWeaponRecords; w++)
+            WriteField(Record(w), kWeaponFields[f], g_weapons[f][w].value_or(game[f][w]));
+    }
 }
 
 // every type in the array a hit's type is in, with its hits table as the game has it
@@ -172,6 +205,9 @@ void ReadTypes(uint32_t any) {
 
 uint32_t Difficulty() { return std::min(R32(R32(kGame) + kGameDifficulty), kDifficulties - 1); }
 
+// the table a difficulty plays: its own
+uint32_t TableFor(uint32_t difficulty) { return difficulty; }
+
 }  // namespace
 
 namespace rebalance {
@@ -179,7 +215,7 @@ namespace rebalance {
 void Tick() {
     if (g_loaded || !R32(kWorld)) return;
     Load();
-    ApplyClips();
+    ApplyWeapons();
     g_loaded = true;
 }
 
@@ -197,7 +233,7 @@ void RebalanceHit(X86Context& ctx, uint8_t*) {
     if (t == g_types.end()) return;
     Shares shares = t->game[weapon];
     if (auto set = g_settings.find(id); set != g_settings.end())
-        if (const auto& s = set->second[Difficulty()][weapon]) shares = *s;
+        if (const auto& s = set->second[TableFor(Difficulty())][weapon]) shares = *s;
     uint32_t entry = t->table + weapon * kHitsEntrySize;
     G<float>(entry) = shares.front;
     G<float>(entry + 4) = shares.back;
