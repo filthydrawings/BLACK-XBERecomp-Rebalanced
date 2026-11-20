@@ -39,10 +39,6 @@ namespace {
 
 namespace fs = std::filesystem;
 
-// the weapon records in order, as balance.toml names them
-constexpr const char* kWeaponNames[kWeaponRecords] = {
-    "dc3elite", "spas12", "sniper", "uzi", "g36c", "ak47", "rpg", "launcher",
-    "mac10", "p90", "m249", "magnum", "m16", "rem870", "glock", "mp5"};
 // the records a hits row lists, in its order: all but the RPG and the launcher, whose damage is the explosion's
 constexpr uint32_t kRowWeapons[] = {0, 1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13, 14, 15};
 constexpr size_t kRowSize = std::size(kRowWeapons);
@@ -93,8 +89,6 @@ fs::path FilePath() {
 
 float Share(double hits) { return hits > 0 ? kShareOfHits / float(hits) : 0.0f; }
 
-uint32_t Record(uint32_t weapon) { return kWeaponRecordsAt + weapon * kWeaponRecordSize; }
-bool RecordsMapped() { return R32(Record(0) + 4) == 1 && G<float>(Record(0) + 0x1C) == 1.0f; }
 
 int WeaponIndex(std::string_view name) {
     for (uint32_t i = 0; i < kWeaponRecords; i++)
@@ -188,16 +182,18 @@ void WriteField(uint32_t record, const WeaponField& f, double v) {
 bool ApplyWeapons() {
     static std::array<std::array<double, kWeaponRecords>, kFields> game;
     static bool read;
-    if (!RecordsMapped()) return false;
+    if (!WeaponRecordsMapped()) return false;
     if (!read) {
         for (size_t f = 0; f < kFields; f++)
-            for (uint32_t w = 0; w < kWeaponRecords; w++) game[f][w] = ReadField(Record(w), kWeaponFields[f]);
+            for (uint32_t w = 0; w < kWeaponRecords; w++) game[f][w] = ReadField(WeaponRecord(w), kWeaponFields[f]);
         read = true;
     }
     for (size_t f = 0; f < kFields; f++) {
         bool applies = Applies(f);
-        for (uint32_t w = 0; w < kWeaponRecords; w++)
-            WriteField(Record(w), kWeaponFields[f], applies ? g_weapons[f][w].value_or(game[f][w]) : game[f][w]);
+        for (uint32_t w = 0; w < kWeaponRecords; w++) {
+            double v = applies ? g_weapons[f][w].value_or(game[f][w]) : game[f][w];
+            WriteField(WeaponRecord(w), kWeaponFields[f], v);
+        }
     }
     return true;
 }

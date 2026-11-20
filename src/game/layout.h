@@ -77,6 +77,15 @@ constexpr uint32_t kDataClip = 0x60;  // int: the clip size
 constexpr uint32_t kDataRange = 0x14;  // float: its range, unconfirmed
 constexpr uint32_t kDataFireGap = 0x20;  // float: seconds between shots, unconfirmed
 constexpr uint32_t kWeaponRecordsAt = 0x8227D330;  // record 0, in GlobData.bin, mapped at 0x820BE000
+// the records in order, as balance.toml names them
+inline constexpr const char* kWeaponNames[kWeaponRecords] = {
+    "dc3elite", "spas12", "sniper", "uzi", "g36c", "ak47", "rpg", "launcher",
+    "mac10", "p90", "m249", "magnum", "m16", "rem870", "glock", "mp5"};
+inline uint32_t WeaponRecord(uint32_t weapon) { return kWeaponRecordsAt + weapon * kWeaponRecordSize; }
+// GlobData.bin is in: record 0 has the words every record has
+inline bool WeaponRecordsMapped() {
+    return kernel::R32(WeaponRecord(0) + 4) == 1 && kernel::G<float>(WeaponRecord(0) + 0x1C) == 1.0f;
+}
 
 // UI object, the front end the menu hooks get in ebp
 constexpr uint32_t kUi = 0x2D199C;
