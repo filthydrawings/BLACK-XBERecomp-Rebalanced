@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <cstring>
 #include <optional>
+#include <string>
+#include <vector>
 
 #include "app/app.h"
 #include "common/aspect.h"
@@ -34,6 +36,7 @@ constexpr uint32_t kFont = 0x2F433C;  // the small font
 // on a frame 480 high
 constexpr float kSize = 15;
 constexpr float kMargin = 8;
+constexpr float kLineHeight = kSize + 2;  // the top left lines, one under the other
 constexpr float kGrey = 186 / 255.0f;  // the HUD's text
 
 // as SCDA: at rest it ends 80 in from the right, on the row of the menu's button legend
@@ -131,11 +134,16 @@ void DrawOverlay(X86Context& ctx, uint8_t*) {
     uint32_t viewport = SYM(D3D_Device) + XDK_CDevice_Viewport;
     float w = float(R32(viewport + kViewportWidth));
     float h = float(R32(viewport + kViewportHeight));
-    bool fps = game::Opt().fps_counter;
+    std::vector<std::string> lines;  // at the top left
+    if (game::Opt().fps_counter) {
+        char text[32];
+        std::snprintf(text, sizeof text, "FPS: %.1f", double(game::g_fps.load()));
+        lines.push_back(text);
+    }
     const TitlePage* title = CurrentTitlePage();
     std::optional<float> slide = title ? LegendSlide(*title) : std::nullopt;
     bool watermark = slide.has_value();
-    if (!(fps || watermark) || !font || !(h > 0)) return;
+    if ((lines.empty() && !watermark) || !font || !(h > 0)) return;
     View view{h / 480, w / h / game::Aspect()};
     float& width = G<float>(font + kFontScale);
     float game_width = width;
@@ -143,11 +151,8 @@ void DrawOverlay(X86Context& ctx, uint8_t*) {
     float watermark_x = output_width - kWatermarkRight - TextWidth(font, kWatermark) + slide.value_or(0.0f);
     CallGuest(ctx, kBegin, {});
     width = game_width * view.narrow;
-    if (fps) {
-        char text[32];
-        std::snprintf(text, sizeof text, "FPS: %.1f", double(game::g_fps.load()));
-        DrawText(ctx, font, view, text, kMargin, kMargin, true);
-    }
+    for (size_t i = 0; i < lines.size(); i++)
+        DrawText(ctx, font, view, lines[i].c_str(), kMargin, kMargin + float(i) * kLineHeight, true);
     if (watermark) DrawText(ctx, font, view, kWatermark, watermark_x, kWatermarkTop, false);
     width = game_width;
     if (R32(kQuads)) CallGuest(ctx, kFlush, {});
