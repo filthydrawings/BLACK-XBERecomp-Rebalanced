@@ -575,7 +575,7 @@ at = 0x2139D
 call = "HudItem"
 on_false = 0x213A0
 
-# src/game/research.cpp, each call of NtCreateFile: its name before, its result after (temporary)
+# src/game/game_files.cpp, each call of NtCreateFile: its name before, its result after
 [[hook]]
 at = 0x2337A
 call = "FileOpening"
