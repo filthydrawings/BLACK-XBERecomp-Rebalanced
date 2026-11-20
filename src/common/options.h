@@ -51,6 +51,12 @@ struct Options {
     uint32_t rumble_intensity = 100;  // percent of the game's vibration
     gyro::Settings gyro;  // the controller's gyro turns the view, beside the right stick
     bool menu_animations = true;  // off: menu pages and the pause menu change without sliding in and out
+    // balancing, from balance.toml beside the exe (src/game/rebalance.cpp)
+    bool enemy_rebalance = true;  // hits to kill from its enemy tables; off the game's own
+    bool per_difficulty_rebalance = true;  // Hard and Black Ops their own tables; off every difficulty Normal's
+    bool realistic_clips = true;  // its clip sizes
+    bool range_adjust = false;  // its ranges
+    bool fire_rate_adjust = false;  // its gaps between shots
     std::map<std::string, std::string> keys;  // action id to key names, absent is the default
 };
 Options& Opt();

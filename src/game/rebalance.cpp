@@ -3,6 +3,7 @@
 // The game keeps a hits table per enemy type, an entry per weapon record: the share of health a hit takes from the
 // front and from the back, 1.02 over the hits. Every hit's entry is written just before the game reads it, with the
 // setting for the difficulty played, or the game's own without one.
+// The Balancing Settings toggles (game::Options) pick what applies, and take effect as they change.
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -25,6 +26,7 @@
 
 #include <toml++/toml.hpp>
 
+#include "common/options.h"
 #include "core/log.h"
 #include "game/layout.h"
 #include "game/rebalance.h"
@@ -47,6 +49,7 @@ constexpr size_t kRowSize = std::size(kRowWeapons);
 // the tables by difficulty, 0 to 3: easy plays normal's
 constexpr const char* kDifficultyTables[] = {"normal", "normal", "hard", "black_ops"};
 constexpr uint32_t kDifficulties = 4;
+constexpr uint32_t kNormal = 1;
 
 constexpr float kShareOfHits = 1.02f;  // the share of a hit of N hits to kill: this over N
 constexpr uint32_t kMostTypes = 128;
@@ -157,8 +160,16 @@ void Load() {
     LOGI("balance.toml: %zu enemy types set", g_settings.size());
 }
 
-// the field applied: clip only for now
-bool Applies(size_t field) { return field == kClipField; }
+// the field applied, by its toggle
+bool Applies(size_t field) {
+    const game::Options& o = game::Opt();
+    switch (field) {
+        case kClipField: return o.realistic_clips;
+        case kRangeField: return o.range_adjust;
+        case kFireGapField: return o.fire_rate_adjust;
+        default: return false;
+    }
+}
 
 // a record's field as a number, and back
 double ReadField(uint32_t record, const WeaponField& f) {
@@ -169,22 +180,32 @@ void WriteField(uint32_t record, const WeaponField& f, double v) {
     else W32(record + f.offset, uint32_t(int32_t(std::lround(v))));
 }
 
-// each field applied: the file's value, else the game's; the game's are read once, before any write
-void ApplyWeapons() {
+// each field applied: the file's value, else the game's, which a field not applied gets back; the game's are read
+// once, before any write. False before the records are mapped
+bool ApplyWeapons() {
     static std::array<std::array<double, kWeaponRecords>, kFields> game;
     static bool read;
-    if (!RecordsMapped()) return;
+    if (!RecordsMapped()) return false;
     if (!read) {
         for (size_t f = 0; f < kFields; f++)
             for (uint32_t w = 0; w < kWeaponRecords; w++) game[f][w] = ReadField(Record(w), kWeaponFields[f]);
         read = true;
     }
     for (size_t f = 0; f < kFields; f++) {
-        if (!Applies(f)) continue;
+        bool applies = Applies(f);
         for (uint32_t w = 0; w < kWeaponRecords; w++)
-            WriteField(Record(w), kWeaponFields[f], g_weapons[f][w].value_or(game[f][w]));
+            WriteField(Record(w), kWeaponFields[f], applies ? g_weapons[f][w].value_or(game[f][w]) : game[f][w]);
     }
+    return true;
 }
+
+// the weapon toggles as last applied, one bit a field
+uint32_t WeaponToggles() {
+    uint32_t bits = 0;
+    for (size_t f = 0; f < kFields; f++) bits |= uint32_t(Applies(f)) << f;
+    return bits;
+}
+std::optional<uint32_t> g_applied;  // none until the records take a write
 
 // every type in the array a hit's type is in, with its hits table as the game has it
 void ReadTypes(uint32_t any) {
@@ -205,18 +226,22 @@ void ReadTypes(uint32_t any) {
 
 uint32_t Difficulty() { return std::min(R32(R32(kGame) + kGameDifficulty), kDifficulties - 1); }
 
-// the table a difficulty plays: its own
-uint32_t TableFor(uint32_t difficulty) { return difficulty; }
+// the table a difficulty plays: its own, or normal's with per difficulty rebalancing off
+uint32_t TableFor(uint32_t difficulty) { return game::Opt().per_difficulty_rebalance ? difficulty : kNormal; }
 
 }  // namespace
 
 namespace rebalance {
 
 void Tick() {
-    if (g_loaded || !R32(kWorld)) return;
-    Load();
-    ApplyWeapons();
-    g_loaded = true;
+    if (!g_loaded) {
+        if (!R32(kWorld)) return;
+        Load();
+        g_loaded = true;
+    } else if (WeaponToggles() == g_applied) {
+        return;
+    }
+    if (ApplyWeapons()) g_applied = WeaponToggles();
 }
 
 }  // namespace rebalance
@@ -232,7 +257,8 @@ void RebalanceHit(X86Context& ctx, uint8_t*) {
     auto t = std::find_if(g_types.begin(), g_types.end(), [&](const Type& t) { return t.id == id; });
     if (t == g_types.end()) return;
     Shares shares = t->game[weapon];
-    if (auto set = g_settings.find(id); set != g_settings.end())
+    auto set = g_settings.find(id);
+    if (game::Opt().enemy_rebalance && set != g_settings.end())
         if (const auto& s = set->second[TableFor(Difficulty())][weapon]) shares = *s;
     uint32_t entry = t->table + weapon * kHitsEntrySize;
     G<float>(entry) = shares.front;

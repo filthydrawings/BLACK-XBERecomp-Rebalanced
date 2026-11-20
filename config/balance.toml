@@ -2,7 +2,10 @@
 # The game reads balance.toml beside BLACK.exe once, when the first level loads: restart the game after editing.
 # The build copies config/balance.toml there, so edit config/ and rebuild, or edit the copy beside the exe.
 # Hits are body hits to kill, 0 = no damage; headshots still kill instantly. Easy uses [normal].
-# In [weapons], only clip is applied for now; range and fire_gap are not applied yet.
+# Each part applies only with its toggle on, in the game's Recomp Settings > Balancing Settings (or F10), and the
+# toggles take effect at once: Enemy rebalancing (the hits tables), Per difficulty enemy rebalancing (off, every
+# difficulty uses [normal]), Realistic clip sizes (clip), Weapon range adjustments (range), Fire rate adjustments
+# (fire_gap). A clip change shows from the next reload or pickup.
 #
 # HITS TO KILL
 # One row per enemy type, one number per weapon: how many body hits that weapon needs to kill that enemy.
@@ -65,8 +68,8 @@ type_40_back = [  1,   1,   1,   1,   2,   2,   1,   2,   1,   1,   1,   1,   1,
 # WEAPON STATS, from the game's weapon records (assets\GlobData.bin)
 #   clip      confirmed by your tests
 #   ammo      which guns share an ammo pool (shown for reference, change with care)
-#   range     LIKELY (record +0x14): 25 shotguns, 30 Uzi/MAC10/P90, 60 most guns, 1000 long range. Untested
-#   fire_gap  LIKELY (record +0x20): seconds between shots. Untested
+#   range     record +0x14, unconfirmed: 25 shotguns, 30 Uzi/MAC10/P90, 60 most guns, 1000 long range
+#   fire_gap  record +0x20, unconfirmed: seconds between shots
 #   spread and recoil: candidate fields found, not confirmed yet, so not listed here
 # weapon  =   clip  ammo  range  fire_gap
 [weapons]
