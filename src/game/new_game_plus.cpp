@@ -10,7 +10,8 @@
 //   Infinite ammo: the four reads that refill the spare ammo after a shot (0x1EFC0F), the clip when it runs dry
 //     (0x1EFCDF) and show 999 on the HUD (0x12CEEA, 0x13A947)
 //   Starting weapon: the hash of the player's first weapon as it starts (sub_001DEC70, where Black Ops puts the
-//     M16A2), the chosen kind's when the level has its model, then its clip filled and spare ammo given
+//     M16A2), the chosen kind's, then its clip filled and spare ammo given. A weapon the level lacks is borrowed
+//     (borrowed_weapons.cpp)
 #include <algorithm>
 #include <cstdint>
 
@@ -63,11 +64,8 @@ void StartWeapon(X86Context& ctx, uint32_t& lo, uint32_t& hi) {
     X86Context saved = ctx;
     uint32_t model = weapon_kinds::Model(ctx, entry);
     ctx = saved;
-    if (!model) {
-        LOGW("new game+: this level has no model for %s, the game's start weapon", kWeaponNames[record]);
-        return;
-    }
-    LOGR("new game+: starting with %s (kind %u) for %08X%08X", kWeaponNames[record], kind, hi, lo);
+    LOGR("new game+: starting with %s (kind %u) for %08X%08X%s", kWeaponNames[record], kind, hi, lo,
+         model ? "" : ", borrowed: this stage has no pickup of it");
     lo = R32(entry);
     hi = R32(entry + 4);
     g_given = kind;

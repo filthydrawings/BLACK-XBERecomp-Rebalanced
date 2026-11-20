@@ -522,12 +522,10 @@ void GiveWeapon(FILE* f, X86Context& ctx, int step, uint32_t frame) {
         std::fprintf(f, "  kind %u %s: looking for its model\n", next, RecordName(R32(entry + 8)));
         std::fflush(f);
         uint32_t model = weapon_kinds::Model(ctx, entry);
-        std::fprintf(f, "  kind %u: model %08X%s\n", next, model, model ? "" : ", not in this level, passed over");
+        std::fprintf(f, "  kind %u: model %08X%s\n", next, model, model ? "" : ", not in this level, borrowed");
         std::fflush(f);
-        if (model) {
-            kind = next;
-            break;
-        }
+        kind = next;
+        break;
     }
     if (kind == now) {
         ctx = saved;
@@ -535,7 +533,7 @@ void GiveWeapon(FILE* f, X86Context& ctx, int step, uint32_t frame) {
         std::fflush(f);
         return;
     }
-    if (R32(player + kCharacterModels)) {
+    if (R32(player + kCharacterModels) && weapon_kinds::Model(ctx, entry)) {
         std::fprintf(f, "  taking its model\n");
         std::fflush(f);
         ctx.ebx = player;
