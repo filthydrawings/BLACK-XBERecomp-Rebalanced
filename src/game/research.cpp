@@ -18,7 +18,7 @@
 //   F5 / Shift+F5: the weapon in hand becomes the next / previous weapon of the game, full clip and spare ammo
 //   every file the game opens, weapon files in black.log too
 //   each stage's pickup list and loaded file slots, in black.log too
-//   a borrowed weapon's pickup model loaded from another level (BorrowPickupModel)
+//   F12: the weapon in hand's pickup model loaded from another level when the stage lacks it (BorrowPickupModel)
 // Nothing in the game is changed, but F9's candidate, F11's reload speed and F5's weapon.
 #include <algorithm>
 #include <chrono>
@@ -600,14 +600,14 @@ void LogPickups(FILE* f, X86Context& ctx) {
         uint32_t lo = R32(entry + 8);
         uint32_t hi = R32(entry + 0xC);
         uint32_t cached = models ? R32(models + i * 4) : 0;
-        uint32_t found = CallGuest(ctx, kFindResource, {resources, lo, hi});
+        uint32_t found = cached;  // no lookup: one while the stage still loads crashed (sub_001F83E0)
         uint32_t data = R32(weapon_kinds::Entry(kind) + 8);
-        std::fprintf(f, "  %2u kind %2u %-9s model %08X%08X cached %08X, in this stage %08X; words", i, kind,
-                     RecordName(data), hi, lo, cached, found);
+        std::fprintf(f, "  %2u kind %2u %-9s model %08X%08X cached %08X; words", i, kind, RecordName(data), hi, lo,
+                     found);
         for (uint32_t at = 0; at < kPickupSize; at += 4) std::fprintf(f, " %08X", R32(entry + at));
         std::fprintf(f, "\n");
-        LOGR("  pickup %u: kind %u %s, model %08X%08X %s", i, kind, RecordName(data), hi, lo,
-             found ? "in this stage" : "NOT in this stage");
+        LOGR("  pickup %u: kind %u %s, model %08X%08X%s", i, kind, RecordName(data), hi, lo,
+             found ? ", looked up" : "");
     }
     ctx = saved;
     uint32_t used = 0;
@@ -627,7 +627,8 @@ void LogPickups(FILE* f, X86Context& ctx) {
 // and New Game+, its models found by name from then on). Once the stage's own pack is in and the loading slot is
 // idle, the pack with the model of the weapon in hand, when the stage lacks it, is queued the same way, its slot then
 // given a key of its own and a use count of 1. Every step, the slots and the pack places are logged; anything full or
-// unexpected leaves the weapon to vanish when dropped, as before.
+// unexpected leaves the weapon to vanish when dropped, as before. Only on F12, once in control: done on its own as the
+// stage started, the first lookup crashed.
 constexpr uint32_t kQueue = 0x1F37E0;       // eax the loading slot, ecx the path, edx [kResources], 6 arguments
 constexpr uint32_t kFileIn = 0x1D3790;      // the loading slot's callback: files the pack in a type 0xC slot
 constexpr uint32_t kGunsSlot = 8;           // the loading slot the stage's Guns.bin uses
@@ -714,6 +715,9 @@ void LogSlots(FILE* f, const char* when) {
     std::fflush(f);
 }
 
+constexpr int kBorrowKey = VK_F12;
+bool g_borrow_asked;  // F12: borrow the weapon in hand's pickup model, once in control
+
 void BorrowPickupModel(FILE* f, X86Context& ctx) {
     uint32_t world = R32(kWorld);
     uint32_t resources = R32(kResources);
@@ -748,7 +752,13 @@ void BorrowPickupModel(FILE* f, X86Context& ctx) {
         }
         return;
     }
-    if (g_borrow.state != 0 || kind == g_borrow.kind) return;
+    if (!g_borrow_asked) return;
+    g_borrow_asked = false;
+    if (g_borrow.state != 0 || kind == g_borrow.kind) {
+        std::fprintf(f, "borrow: F12, already %d for kind %u
+", g_borrow.state, g_borrow.kind);
+        return;
+    }
     uint32_t lo = 0, hi = 0;
     if (!PickupModelName(kind, lo, hi)) return;
     X86Context saved = ctx;
@@ -979,6 +989,10 @@ void Tick() {
         g_reload_speed_on = !g_reload_speed_on;
         Note(g_reload_speed_on ? "F11: RELOAD+SWITCH x2 ON" : "F11: RELOAD+SWITCH x2 OFF");
         std::fprintf(f, "\n=== frame %u: F11, reload x%g %s\n", frame, kReloadSpeed, g_reload_speed_on ? "on" : "off");
+    }
+    if (Pressed(kBorrowKey)) {
+        g_borrow_asked = true;
+        Note("F12: BORROW PICKUP MODEL");
     }
     if (Pressed(kWeaponKey)) {
         g_give_step = GetAsyncKeyState(VK_SHIFT) & 0x8000 ? -1 : 1;
