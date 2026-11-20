@@ -52,9 +52,9 @@ void SetLow(uint32_t& reg, bool on) { reg = (reg & ~0xFFu) | (on ? 1u : 0u); }
 
 // the hash of the player's first weapon, hi:lo in two registers, the chosen kind's when this level has its model
 void StartWeapon(X86Context& ctx, uint32_t& lo, uint32_t& hi) {
-    uint32_t choice = game::Opt().ngp_start_weapon;
-    if (ctx.ebx != Player() || !g_active || !Unlocked() || !choice || choice > kWeaponRecords) return;
-    uint32_t record = choice - 1;
+    int chosen = new_game_plus::StartWeaponRecord();
+    if (ctx.ebx != Player() || chosen < 0) return;
+    uint32_t record = uint32_t(chosen);
     uint32_t kind = weapon_kinds::OfRecord(WeaponRecord(record));
     uint32_t entry = weapon_kinds::Entry(kind);
     if (!entry) {
@@ -76,6 +76,12 @@ void StartWeapon(X86Context& ctx, uint32_t& lo, uint32_t& hi) {
 namespace new_game_plus {
 
 bool Active() { return g_active; }
+
+int StartWeaponRecord() {
+    uint32_t choice = game::Opt().ngp_start_weapon;
+    if (!g_active || !Unlocked() || !choice || choice > kWeaponRecords) return -1;
+    return int(choice - 1);
+}
 
 }  // namespace new_game_plus
 
