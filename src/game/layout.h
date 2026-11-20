@@ -35,6 +35,13 @@ constexpr uint32_t kTimerTime = 0x20;
 // world container: its tick reads as a timer
 constexpr uint32_t kWorld = 0x2D45D4;
 constexpr uint32_t kWorldPlayer = 0x30;
+constexpr uint32_t kWorldLevel = 0x5AEC;  // byte: the level loaded, story levels below kStoryLevels
+constexpr uint32_t kStoryLevels = 0x32;
+// bytes the level load sets (sub_001EDC90): the game finished on this difficulty or a harder one, or Black Ops. It
+// picks the level's silver weapon data and gives infinite ammo
+constexpr uint32_t kWorldNewGamePlus = 0x5CB0;
+// Black Ops finished, or played: the player starts with the M16A2 (sub_001DEC70)
+constexpr uint32_t kWorldStartWeapon = 0x5CB1;
 
 // player
 constexpr uint32_t kPlayerWeapon = 0x29C;  // the weapon in hand

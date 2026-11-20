@@ -39,6 +39,7 @@
 
 #include "game/layout.h"
 #include "game/rebalance.h"
+#include "game/weapon_kinds.h"
 #include "game/research.h"
 #include "xdk/hle.h"
 
@@ -468,33 +469,18 @@ void LogStates(FILE* f, uint32_t weapon, uint32_t frame) {
 // resources (sub_001F83E0). The player has no third person model holder (+0x258 is 0, which sub_001C5CD0 writes
 // through: the crash of the first two versions), so the model is only taken for a character that has one.
 constexpr int kWeaponKey = VK_F5;
-constexpr uint32_t kWeaponKinds = 0x2D12D0;  // -> -> +1 byte the count, +4 the kinds, kWeaponKindSize each
-constexpr uint32_t kWeaponKindSize = 0x20;   // +0 and +4 its name's hash, +8 its weapon data
-constexpr uint32_t kWeaponKind = 0;          // byte, in the weapon object: its place in the table
 constexpr uint32_t kCharacterModels = 0x258;  // -> +0xC the model of the weapon in hand; 0 for the player
-constexpr uint32_t kModelName = 0xC09F0;     // cdecl (hash, hash, 0x48000000, 0xE69A1DD7): edx:eax its model's name
-constexpr uint32_t kResources = 0x2D45D8;
-constexpr uint32_t kFindResource = 0x1F83E0;  // stdcall ([kResources], name, name): the resource, 0 none
 constexpr uint32_t kTakeModel = 0x1C5CD0;    // ebx the character, (hash, hash)
 constexpr uint32_t kLetGo = 0x1C2A30;        // ebx the weapon
 constexpr uint32_t kSetUp = 0x1C9FA0;        // al the kind, ecx the character, edx the weapon, (0)
 constexpr int kSpareClips = 4;
 int g_give_step;  // the swap asked for: 1 the next, -1 the one before, 0 none
 
-uint32_t WeaponKinds() {
-    uint32_t holder = R32(kWeaponKinds);
-    return holder ? R32(holder) : 0;
-}
-
 // the kinds whose data is one of the weapon records, in the table's order
 std::vector<uint32_t> GunKinds() {
     std::vector<uint32_t> guns;
-    uint32_t table = WeaponKinds();
-    if (!table) return guns;
-    uint32_t count = G<uint8_t>(table + 1);
-    uint32_t kinds = R32(table + 4);
-    for (uint32_t i = 0; i < count; i++)
-        if (std::strcmp(RecordName(R32(kinds + i * kWeaponKindSize + 8)), "?") != 0) guns.push_back(i);
+    for (uint32_t i = 0; i < weapon_kinds::Count(); i++)
+        if (std::strcmp(RecordName(R32(weapon_kinds::Entry(i) + 8)), "?") != 0) guns.push_back(i);
     return guns;
 }
 
@@ -502,32 +488,11 @@ std::vector<uint32_t> GunKinds() {
 std::string WeaponLine(uint32_t weapon) {
     if (!weapon) return "";
     std::vector<uint32_t> guns = GunKinds();
-    auto at = std::find(guns.begin(), guns.end(), uint32_t(G<uint8_t>(weapon + kWeaponKind)));
+    auto at = std::find(guns.begin(), guns.end(), uint32_t(G<uint8_t>(weapon + weapon_kinds::kWeaponKind)));
     char line[64];
     std::snprintf(line, sizeof line, "WEAPON: %s (%zu/%zu)", RecordName(R32(weapon + kWeaponData)),
                   at == guns.end() ? size_t(0) : size_t(at - guns.begin()) + 1, guns.size());
     return line;
-}
-
-// a guest call's edx:eax, which CallGuest does not keep: the registers and the stack given back as it does
-uint64_t CallGuest64(X86Context& ctx, uint32_t fn, std::initializer_list<uint32_t> args) {
-    X86Context saved = ctx;
-    for (auto p = args.end(); p != args.begin();) {
-        ctx.esp -= 4;
-        W32(ctx.esp, *--p);
-    }
-    ctx.esp -= 4;
-    W32(ctx.esp, 0xFFFFFFF0u);
-    x86_icall(ctx, g_base, fn);
-    uint64_t result = uint64_t(ctx.edx) << 32 | ctx.eax;
-    ctx = saved;
-    return result;
-}
-
-// the level's model of a weapon kind, 0 when the level has not loaded it
-uint32_t KindModel(X86Context& ctx, uint32_t entry) {
-    uint64_t name = CallGuest64(ctx, kModelName, {R32(entry), R32(entry + 4), 0x48000000, 0xE69A1DD7});
-    return CallGuest(ctx, kFindResource, {R32(kResources), uint32_t(name), uint32_t(name >> 32)});
 }
 
 void GiveWeapon(FILE* f, X86Context& ctx, int step, uint32_t frame) {
@@ -539,7 +504,7 @@ void GiveWeapon(FILE* f, X86Context& ctx, int step, uint32_t frame) {
     if (!weapon || guns.empty()) return;
     RestoreExaggerated(f);
     size_t n = guns.size();
-    uint32_t now = G<uint8_t>(weapon + kWeaponKind);
+    uint32_t now = G<uint8_t>(weapon + weapon_kinds::kWeaponKind);
     auto at = std::find(guns.begin(), guns.end(), now);
     size_t from = at == guns.end() ? (step > 0 ? n - 1 : 0) : size_t(at - guns.begin());
     const char* had = RecordName(R32(weapon + kWeaponData));
@@ -550,10 +515,10 @@ void GiveWeapon(FILE* f, X86Context& ctx, int step, uint32_t frame) {
     for (size_t tries = 1; tries <= n; tries++) {
         uint32_t next = guns[(from + n + step * int(tries)) % n];
         if (next == now) break;
-        entry = R32(WeaponKinds() + 4) + next * kWeaponKindSize;
+        entry = weapon_kinds::Entry(next);
         std::fprintf(f, "  kind %u %s: looking for its model\n", next, RecordName(R32(entry + 8)));
         std::fflush(f);
-        uint32_t model = KindModel(ctx, entry);
+        uint32_t model = weapon_kinds::Model(ctx, entry);
         std::fprintf(f, "  kind %u: model %08X%s\n", next, model, model ? "" : ", not in this level, passed over");
         std::fflush(f);
         if (model) {
