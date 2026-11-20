@@ -13,7 +13,6 @@
 #include "core/diag.h"
 #include "d3d/gpu_frame.h"
 #include "d3d/occlusion.h"
-#include "game/research.h"
 #include "gpu/backend.h"
 #include "gpu/texture.h"
 #include "gpu/vertex.h"
@@ -638,7 +637,6 @@ void RotateBuffers() {
 
 HLE_STDCALL(D3DDevice_Swap, 1) {
     game::WaitWhileUnfocused();
-    research::BetweenFrames(ctx);
     app::SplashFirstFrame();
     // handed over from the previous instance: the window opens on the second frame, the first picture with
     // anything drawn over it right after

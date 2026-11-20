@@ -575,171 +575,50 @@ at = 0x2139D
 call = "HudItem"
 on_false = 0x213A0
 
-# src/game/game_files.cpp, each call of NtCreateFile: its name before, its result after
+# src/game/game_files.cpp, each call of NtCreateFile: a borrowed weapon's file before it
 [[hook]]
 at = 0x2337A
 call = "FileOpening"
-
-[[hook]]
-at = 0x2337A
-call = "FileOpened"
-after = true
 
 [[hook]]
 at = 0x2379B
 call = "FileOpening"
 
 [[hook]]
-at = 0x2379B
-call = "FileOpened"
-after = true
-
-[[hook]]
 at = 0x23D87
 call = "FileOpening"
-
-[[hook]]
-at = 0x23D87
-call = "FileOpened"
-after = true
 
 [[hook]]
 at = 0x24131
 call = "FileOpening"
 
 [[hook]]
-at = 0x24131
-call = "FileOpened"
-after = true
-
-[[hook]]
 at = 0x25C46
 call = "FileOpening"
-
-[[hook]]
-at = 0x25C46
-call = "FileOpened"
-after = true
 
 [[hook]]
 at = 0x25D09
 call = "FileOpening"
 
 [[hook]]
-at = 0x25D09
-call = "FileOpened"
-after = true
-
-[[hook]]
 at = 0x25DC6
 call = "FileOpening"
-
-[[hook]]
-at = 0x25DC6
-call = "FileOpened"
-after = true
 
 [[hook]]
 at = 0x25EAF
 call = "FileOpening"
 
 [[hook]]
-at = 0x25EAF
-call = "FileOpened"
-after = true
-
-[[hook]]
 at = 0x26D76
 call = "FileOpening"
-
-[[hook]]
-at = 0x26D76
-call = "FileOpened"
-after = true
 
 [[hook]]
 at = 0x278040
 call = "FileOpening"
 
 [[hook]]
-at = 0x278040
-call = "FileOpened"
-after = true
-
-[[hook]]
 at = 0x2781FB
 call = "FileOpening"
-
-[[hook]]
-at = 0x2781FB
-call = "FileOpened"
-after = true
-
-# src/game/research.cpp, a character's health as it starts (temporary)
-[[hook]]
-at = 0x1DF229
-call = "CharacterHealthStart"
-
-# src/game/research.cpp, the damage functions' health stores (temporary)
-[[hook]]
-at = 0x1DFA0F
-call = "Hit1DFA0F"
-
-[[hook]]
-at = 0x1DFB65
-call = "Hit1DFB65"
-
-[[hook]]
-at = 0x1ED293
-call = "Hit1ED293"
-
-[[hook]]
-at = 0x1ED5B2
-call = "Hit1ED5B2"
-
-[[hook]]
-at = 0x1ED92E
-call = "Hit1ED92E"
-
-[[hook]]
-at = 0x1EDAF0
-call = "Hit1EDAF0"
-
-[[hook]]
-at = 0x1E7A68
-call = "Hit1E7A68"
-
-[[hook]]
-at = 0x1DF97D
-call = "Hit1DF97D"
-
-[[hook]]
-at = 0x1DFB7D
-call = "Hit1DFB7D"
-
-[[hook]]
-at = 0x1ED27C
-call = "Hit1ED27C"
-
-[[hook]]
-at = 0x1ED59A
-call = "Hit1ED59A"
-
-[[hook]]
-at = 0x1ED91D
-call = "Hit1ED91D"
-
-[[hook]]
-at = 0x1EDA94
-call = "Hit1EDA94"
-
-[[hook]]
-at = 0x1E795B
-call = "Hit1E795B"
-
-[[hook]]
-at = 0x1ED7CB
-call = "Hit1ED7CB"
 
 # src/game/new_game_plus.cpp, the level load's New Game+ flags
 [[hook]]
@@ -784,11 +663,6 @@ call = "StartWeaponAmmo"
 [[hook]]
 at = 0x1E77F4
 call = "RebalanceHit"
-
-# src/game/research.cpp, a hit's damage from the zone table (temporary)
-[[hook]]
-at = 0x1E77F9
-call = "HitDamage"
 
 # src/game/ambient_occlusion.cpp
 [[hook]]

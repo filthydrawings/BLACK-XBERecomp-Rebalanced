@@ -64,7 +64,7 @@ void StartWeapon(X86Context& ctx, uint32_t& lo, uint32_t& hi) {
     X86Context saved = ctx;
     uint32_t model = weapon_kinds::Model(ctx, entry);
     ctx = saved;
-    LOGR("new game+: starting with %s (kind %u) for %08X%08X%s", kWeaponNames[record], kind, hi, lo,
+    LOGI("new game+: starting with %s (kind %u) for %08X%08X%s", kWeaponNames[record], kind, hi, lo,
          model ? "" : ", borrowed: this stage has no pickup of it");
     lo = R32(entry);
     hi = R32(entry + 4);

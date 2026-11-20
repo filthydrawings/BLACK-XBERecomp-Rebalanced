@@ -101,7 +101,6 @@ constexpr size_t kKinds = std::size(kAnimationKinds);
 std::array<FieldValues, kKinds> g_speeds;  // by kind, clamped to kLeastSpeed to kMostSpeed
 constexpr double kLeastSpeed = 0.25;
 constexpr double kMostSpeed = 4.0;
-float g_speed_override;  // a speed for every kind whatever the settings, 0 none
 bool g_loaded;
 
 fs::path FilePath() {
@@ -278,13 +277,12 @@ uint32_t RecordIndex(uint32_t data) {
     return at % kWeaponRecordSize ? kWeaponRecords : std::min(at / kWeaponRecordSize, kWeaponRecords);
 }
 
-// the weapon in hand's speed of each kind: the override, else its own with the kind's toggle on, else 1
+// the weapon in hand's speed of each kind: its own with the kind's toggle on, else 1
 Speeds AnimationSpeeds(uint32_t weapon) {
     Speeds speeds;
     uint32_t w = weapon ? RecordIndex(R32(weapon + kWeaponData)) : kWeaponRecords;
     for (size_t k = 0; k < kKinds; k++) {
-        if (g_speed_override > 0) speeds[k] = g_speed_override;
-        else if (!(game::Opt().*kAnimationKinds[k].toggle) || w >= kWeaponRecords) speeds[k] = 1.0f;
+        if (!(game::Opt().*kAnimationKinds[k].toggle) || w >= kWeaponRecords) speeds[k] = 1.0f;
         else speeds[k] = float(g_speeds[k][w].value_or(1.0));
     }
     return speeds;
@@ -335,8 +333,6 @@ void ApplyAnimationSpeeds(uint32_t weapon, const Speeds& speeds) {
 }  // namespace
 
 namespace rebalance {
-
-void OverrideAnimationSpeeds(float speed) { g_speed_override = speed; }
 
 void Tick() {
     if (!R32(kWorld)) return;
