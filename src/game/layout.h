@@ -71,7 +71,7 @@ constexpr uint32_t kWeaponWait = 0xDC;   // float: the countdown to its next sho
 constexpr uint32_t kWeaponData = 0xEC;
 constexpr uint32_t kWeaponOwner = 0xF0;  // the character holding it
 constexpr uint32_t kWeaponMagazine = 0xF4;
-constexpr uint32_t kWeaponSpareAmmo = 0xFC;  // uint16 a weapon data ammo type (+0x64): the rounds left to load
+constexpr uint32_t kWeaponSpareAmmo = 0xFC;  // -> uint16 per ammo type (kDataAmmoType): the rounds left to load
 // magazine
 constexpr uint32_t kMagazineRounds = 0x18;  // uint16: the rounds in the clip
 constexpr uint32_t kDataAimZoom = 0xB4;  // float: 1 for a weapon that does not aim
@@ -88,6 +88,7 @@ constexpr uint32_t kHitsEntrySize = 12;
 constexpr uint32_t kWeaponRecords = 16;
 constexpr uint32_t kWeaponRecordSize = 0x1E0;
 constexpr uint32_t kDataClip = 0x60;  // int: the clip size
+constexpr uint32_t kDataAmmoType = 0x64;  // int: the ammo pool it shares
 constexpr uint32_t kDataRange = 0x14;  // float: its range, unconfirmed
 // float: the firing interval, seconds between shots, confirmed; changing it desyncs the animations, never written
 constexpr uint32_t kDataFireGap = 0x20;

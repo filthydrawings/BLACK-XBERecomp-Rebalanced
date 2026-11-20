@@ -11,7 +11,8 @@
 // before its first hit.
 //   F9: the next spread, recoil or other candidate field of the record in hand, times 5 (the previous one
 //   restored first, all restored when the weapon in hand changes); the candidates are logged once
-//   each reload: the frames from the clip's last drop to its refill, and the words that counted meanwhile
+//   each reload, from the weapon's reload state to its magazine refilling: the frames and seconds, and each frame
+//   the player's animation and the words of its controller and clip that changed
 // Nothing in the game is changed, but F9's candidate.
 #include <algorithm>
 #include <chrono>
@@ -338,108 +339,91 @@ void ExaggerateNext(FILE* f, uint32_t data, uint32_t frame) {
                  CandidateValue(c, g_original), CandidateValue(c, R32(at)));
 }
 
-// Reloads: the weapon object and the player each frame, the last kHistory frames kept. A word of the weapon object
-// seen dropping by one, as a shot does, that holds still and then rises to at most the clip is the clip refilling:
-// logged with the frames since its last drop and the words that counted between that drop and the refill.
-constexpr size_t kHistory = 600;
-constexpr uint32_t kStillFrames = 10;  // the clip's word holds still this long before a refill
-constexpr size_t kMostCounters = 40;   // logged a side
-struct Frame {
-    uint32_t frame = 0;
+// Reloads: from the weapon in hand going to kWeaponReloading to its magazine's rounds rising, each frame the player's
+// animation: its name, its clip, and the words of the controller and the clip that changed since the frame before,
+// to find what plays the reload and how fast. The clip's words are written whole as it starts and when it changes.
+constexpr uint32_t kControllerBytes = 0xC0;
+constexpr uint32_t kClipBytes = 0x100;
+constexpr uint32_t kNameBytes = 26;  // the controller's name, to its second copy at +0x76
+constexpr uint32_t kMostReloadFrames = 1200;
+struct Reload {
+    bool on = false;
+    uint32_t weapon = 0;
+    uint32_t data = 0;
+    uint32_t start = 0;  // its frame
     std::chrono::steady_clock::time_point time;
-    std::vector<uint32_t> weapon;
-    std::vector<uint32_t> player;
+    uint16_t rounds = 0;  // as it started
+    uint32_t clip = 0;
+    std::vector<uint32_t> controller;
+    std::vector<uint32_t> clip_words;
 };
-std::vector<Frame> g_frames(kHistory);  // a ring
-size_t g_frames_kept;                   // frames in it, to kHistory
-size_t g_frame_next;                    // where the next goes
-uint32_t g_tracked;                     // the weapon object they are of
-std::vector<uint8_t> g_drops;           // per weapon word: seen to drop by one
-std::vector<uint32_t> g_dropped_at;     // per weapon word: the frame it last dropped
-std::vector<uint32_t> g_still;          // per weapon word: frames since it changed
+Reload g_reload;
 
-// the frame kept that many frames back, 0 the newest
-const Frame& Kept(size_t back) { return g_frames[(g_frame_next + kHistory - 1 - back) % kHistory]; }
-
-// the words of one side that changed in at least half of the last since frames
-void LogCounters(FILE* f, const char* side, std::vector<uint32_t> Frame::*words, size_t since) {
-    if (!since) return;
-    size_t count = (Kept(0).*words).size();
-    size_t logged = 0;
-    for (size_t i = 0; i < count && logged < kMostCounters; i++) {
-        size_t changes = 0;
-        size_t before = 0;  // changes in the frames kept before those
-        bool up = false;
-        bool down = false;
-        size_t first = 0;
-        for (size_t back = 0; back + 1 < g_frames_kept; back++) {
-            uint32_t now = (Kept(back).*words)[i];
-            uint32_t was = (Kept(back + 1).*words)[i];
-            if (now == was) continue;
-            if (back >= since) {
-                before++;
-                continue;
-            }
-            changes++;
-            first = back + 1;
-            bool rise = LooksFloat(now) || LooksFloat(was) ? AsFloat(now) > AsFloat(was) : int32_t(now) > int32_t(was);
-            (rise ? up : down) = true;
-        }
-        if (changes * 2 < since) continue;
-        uint32_t start = (Kept(since).*words)[i];
-        uint32_t end = (Kept(0).*words)[i];
-        std::fprintf(f, "  %s +%03X  changed in %zu of %zu frames, from %zu before the refill%s%s, %d -> %d  %g -> %g\n",
-                     side, uint32_t(i * 4), changes, since, first, up && down ? ", up and down" : up ? ", up" : ", down",
-                     before ? "" : ", still before", int32_t(start), int32_t(end), AsFloat(start), AsFloat(end));
-        logged++;
-    }
+uint16_t Rounds(uint32_t weapon) {
+    uint32_t magazine = weapon ? R32(weapon + kWeaponMagazine) : 0;
+    return magazine ? G<uint16_t>(magazine + kMagazineRounds) : 0;
 }
 
-void LogRefill(FILE* f, uint32_t data, size_t word, int32_t was, int32_t now, uint32_t frame) {
-    uint32_t since_drop = frame - g_dropped_at[word];
-    size_t since = std::min<size_t>(since_drop, g_frames_kept - 1);
-    double seconds = std::chrono::duration<double>(Kept(0).time - Kept(since).time).count();
-    std::fprintf(f,
-                 "\n=== frame %u: reload, weapon %08X (%s) +%03X %d -> %d, clip %d: %u frames since its last drop "
-                 "(%zu kept, %.2f s)\n",
-                 frame, g_tracked, RecordName(data), uint32_t(word * 4), was, now, int32_t(R32(data + kDataClip)),
-                 since_drop, since, seconds);
-    LogCounters(f, "weapon", &Frame::weapon, since);
-    LogCounters(f, "player", &Frame::player, since);
+// the rounds left to load for the weapon's ammo type
+uint16_t Spare(uint32_t weapon, uint32_t data) {
+    uint32_t spare = weapon ? R32(weapon + kWeaponSpareAmmo) : 0;
+    return spare && data ? G<uint16_t>(spare + R32(data + kDataAmmoType) * 2) : 0;
+}
+
+// the words that differ, on the line begun
+void Changes(FILE* f, const char* what, std::vector<uint32_t>& was, const std::vector<uint32_t>& now) {
+    for (size_t i = 0; i < now.size() && i < was.size(); i++) {
+        if (now[i] == was[i]) continue;
+        std::fprintf(f, "  %s+%02X %g->%g", what, uint32_t(i * 4), AsFloat(was[i]), AsFloat(now[i]));
+        if (!LooksFloat(now[i]) && !LooksFloat(was[i])) std::fprintf(f, " (%d->%d)", int32_t(was[i]), int32_t(now[i]));
+    }
+    was = now;
 }
 
 void TrackReloads(FILE* f, uint32_t weapon, uint32_t data, uint32_t frame) {
-    if (weapon != g_tracked) {
-        g_tracked = weapon;
-        g_frames_kept = 0;
-        g_drops.assign(kWeaponBytes / 4, 0);
-        g_dropped_at.assign(kWeaponBytes / 4, frame);
-        g_still.assign(kWeaponBytes / 4, 0);
-    }
-    if (!weapon || !data) return;
-    Frame& slot = g_frames[g_frame_next];
-    slot.frame = frame;
-    slot.time = std::chrono::steady_clock::now();
-    slot.weapon = Read(weapon, kWeaponBytes);
-    slot.player = Read(Player(), kPlayerBytes);
-    g_frame_next = (g_frame_next + 1) % kHistory;
-    g_frames_kept = std::min(g_frames_kept + 1, kHistory);
-    if (g_frames_kept < 2) return;
-    int32_t clip = int32_t(R32(data + kDataClip));
-    const std::vector<uint32_t>& now = Kept(0).weapon;
-    const std::vector<uint32_t>& was = Kept(1).weapon;
-    for (size_t i = 0; i < now.size(); i++) {
-        int32_t a = int32_t(was[i]);
-        int32_t b = int32_t(now[i]);
-        if (b == a - 1 && b >= 0 && a <= clip) {
-            g_drops[i] = 1;
-            g_dropped_at[i] = frame;
+    static uint32_t last_state;
+    uint32_t state = weapon ? R32(weapon + kWeaponState) : 0;
+    uint32_t ac = R32(Player() + kCharacterAnimation);
+    uint32_t clip = ac ? R32(ac + kAnimClip) : 0;
+    std::string name = ac ? ReadCString(ac + kAnimName, kNameBytes) : "";
+    uint16_t rounds = Rounds(weapon);
+    Reload& r = g_reload;
+    if (!r.on && weapon && state == kWeaponReloading && last_state != kWeaponReloading) {
+        r = {true, weapon, data, frame, std::chrono::steady_clock::now(), rounds, clip, Read(ac, kControllerBytes),
+             Read(clip, kClipBytes)};
+        std::fprintf(f, "\n=== frame %u: reload starts, weapon %08X (%s), rounds %u of %d, spare %u, animation %08X "
+                     "\"%s\" clip %08X\n",
+                     frame, weapon, RecordName(data), rounds, int32_t(R32(data + kDataClip)), Spare(weapon, data), ac,
+                     name.c_str(), clip);
+        Dump(f, "clip", clip, kClipBytes);
+    } else if (r.on && weapon != r.weapon) {
+        std::fprintf(f, "reload: the weapon in hand changed after %u frames, left\n", frame - r.start);
+        r.on = false;
+    } else if (r.on) {
+        uint32_t frames = frame - r.start;
+        std::fprintf(f, "  %4u state %u rounds %u \"%s\"", frames, state, rounds, name.c_str());
+        Changes(f, "ac", r.controller, Read(ac, kControllerBytes));
+        if (clip != r.clip) {
+            std::fprintf(f, "\n  clip %08X -> %08X\n", r.clip, clip);
+            Dump(f, "clip", clip, kClipBytes);
+            r.clip = clip;
+            r.clip_words = Read(clip, kClipBytes);
+        } else {
+            Changes(f, "clip", r.clip_words, Read(clip, kClipBytes));
+            std::fprintf(f, "\n");
         }
-        if (g_drops[i] && b > a && a >= 0 && b <= clip && g_still[i] >= kStillFrames) LogRefill(f, data, i, a, b, frame);
-        g_still[i] = a == b ? g_still[i] + 1 : 0;
+        if (rounds > r.rounds) {
+            double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - r.time).count();
+            std::fprintf(f, "=== reload done: %s, %u frames, %.2f s, rounds %u -> %u, spare %u, state %u\n",
+                         RecordName(r.data), frames, seconds, r.rounds, rounds, Spare(weapon, data), state);
+            r.on = false;
+        } else if (frames > kMostReloadFrames) {
+            std::fprintf(f, "reload: no refill after %u frames, left\n", frames);
+            r.on = false;
+        }
     }
+    last_state = state;
 }
-
 }  // namespace
 
 // the damage functions' health stores, each before its write: the character's register and the new health's.
@@ -502,6 +486,13 @@ void OverlayLines(std::vector<std::string>& lines) {
     if (Log()) lines.push_back("WEAPON LOGGING: ON");
     if (g_note && std::chrono::steady_clock::now() < g_note_until) lines.push_back(g_note);
     if (Log()) lines.push_back(g_exaggerate_line);
+    if (uint32_t weapon = R32(kWorld) ? R32(Player() + kPlayerWeapon) : 0) {
+        uint32_t data = R32(weapon + kWeaponData);
+        char clip[64];
+        std::snprintf(clip, sizeof clip, "ROUNDS %u / %d  SPARE %u%s", Rounds(weapon),
+                      data ? int32_t(R32(data + kDataClip)) : 0, Spare(weapon, data), g_reload.on ? "  RELOADING" : "");
+        lines.push_back(clip);
+    }
     if (!R32(kWorld)) return;
     char text[64];
     uint32_t player = Player();
