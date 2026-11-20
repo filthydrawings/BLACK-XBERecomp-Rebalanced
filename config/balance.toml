@@ -1,4 +1,8 @@
-# Balance sheet: edit the numbers here. NOT READ BY THE GAME YET: wiring it in is the next step.
+# Balance sheet: edit the numbers here.
+# The game reads balance.toml beside BLACK.exe once, when the first level loads: restart the game after editing.
+# The build copies config/balance.toml there, so edit config/ and rebuild, or edit the copy beside the exe.
+# Hits are body hits to kill, 0 = no damage; headshots still kill instantly. Easy uses [normal].
+# In [weapons], only clip is applied for now; range and fire_gap are not applied yet.
 #
 # HITS TO KILL
 # One row per enemy type, one number per weapon: how many body hits that weapon needs to kill that enemy.

@@ -641,6 +641,11 @@ call = "Hit1E795B"
 at = 0x1ED7CB
 call = "Hit1ED7CB"
 
+# src/game/rebalance.cpp, a hit's entry in its type's hits table, from balance.toml
+[[hook]]
+at = 0x1E77F4
+call = "RebalanceHit"
+
 # src/game/research.cpp, a hit's damage from the zone table (temporary)
 [[hook]]
 at = 0x1E77F9
