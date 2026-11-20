@@ -755,8 +755,7 @@ void BorrowPickupModel(FILE* f, X86Context& ctx) {
     if (!g_borrow_asked) return;
     g_borrow_asked = false;
     if (g_borrow.state != 0 || kind == g_borrow.kind) {
-        std::fprintf(f, "borrow: F12, already %d for kind %u
-", g_borrow.state, g_borrow.kind);
+        std::fprintf(f, "borrow: F12, already %d for kind %u\n", g_borrow.state, g_borrow.kind);
         return;
     }
     uint32_t lo = 0, hi = 0;
