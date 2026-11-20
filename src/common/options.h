@@ -56,7 +56,7 @@ struct Options {
     bool per_difficulty_rebalance = true;  // Hard and Black Ops their own tables; off every difficulty Normal's
     bool realistic_clips = true;  // its clip sizes
     bool range_adjust = false;  // its ranges
-    bool fire_rate_adjust = false;  // its gaps between shots
+    bool recoil_adjust = false;  // its recoil kicks
     std::map<std::string, std::string> keys;  // action id to key names, absent is the default
 };
 Options& Opt();

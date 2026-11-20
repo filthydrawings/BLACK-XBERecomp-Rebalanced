@@ -72,10 +72,10 @@ struct WeaponField {
 constexpr WeaponField kWeaponFields[] = {
     {"clip", kDataClip, false},
     {"range", kDataRange, true},
-    {"fire_gap", kDataFireGap, true},
+    {"recoil", kDataRecoil, true},
 };
 constexpr size_t kFields = std::size(kWeaponFields);
-enum { kClipField, kRangeField, kFireGapField };
+enum { kClipField, kRangeField, kRecoilField };
 using FieldValues = std::array<std::optional<double>, kWeaponRecords>;
 std::array<FieldValues, kFields> g_weapons;  // by field, from the file
 FieldValues g_reload;  // reload speed multipliers, read but not applied: the reload timer is not found yet
@@ -163,7 +163,7 @@ bool Applies(size_t field) {
     switch (field) {
         case kClipField: return o.realistic_clips;
         case kRangeField: return o.range_adjust;
-        case kFireGapField: return o.fire_rate_adjust;
+        case kRecoilField: return o.recoil_adjust;
         default: return false;
     }
 }

@@ -283,7 +283,7 @@ const app::GameInfo app::kGame = {
                 {"per_difficulty_rebalance", &game::Opt().per_difficulty_rebalance, nullptr},
                 {"realistic_clips", &game::Opt().realistic_clips, nullptr},
                 {"range_adjust", &game::Opt().range_adjust, nullptr},
-                {"fire_rate_adjust", &game::Opt().fire_rate_adjust, nullptr}},
+                {"recoil_adjust", &game::Opt().recoil_adjust, nullptr}},
     .load = game::Load,
     .save = game::Save,
     .init = game::Init,

@@ -241,7 +241,7 @@ enum RowId { kDisplayMode, kResolution, kRenderResolution, kMaxFps, kVsync, kFps
              kGyroCalibrate, kColourBlind, kSensitivityVertical, kAimHorizontal, kAimVertical, kInvertMouseX,
              kControllerVertical, kPadAimHorizontal, kPadAimVertical, kInvertPadX, kTextureReplacement,
              kTextureDumping, kDumpFormat, kDeadZone, kEnemyRebalance, kPerDifficultyRebalance, kRealisticClips,
-             kRangeAdjust, kFireRateAdjust };
+             kRangeAdjust, kRecoilAdjust };
 
 using rows::Kind;
 using rows::Row;
@@ -282,7 +282,7 @@ constexpr Row kSettingsRows[] = {
     {Kind::Value, kPerDifficultyRebalance, "PER DIFFICULTY ENEMY REBALANCING"},
     {Kind::Value, kRealisticClips, "REALISTIC CLIP SIZES"},
     {Kind::Value, kRangeAdjust, "WEAPON RANGE ADJUSTMENTS"},
-    {Kind::Value, kFireRateAdjust, "FIRE RATE ADJUSTMENTS"},
+    {Kind::Value, kRecoilAdjust, "RECOIL ADJUSTMENTS"},
 };
 
 // what a row does, shown in the F10 panel's hint line while it is hovered or focused; empty for none
@@ -294,7 +294,8 @@ const char* Description(int id) {
             return "On: Hard and Black Ops use their own tables. Off: all use Normal's, like the original.";
         case kRealisticClips: return "Uses the clip sizes in balance.toml instead of the game's inflated ones.";
         case kRangeAdjust: return "Uses the ranges in balance.toml, for a more satisfying reach.";
-        case kFireRateAdjust: return "Uses the fire rates in balance.toml to rebalance some weapons.";
+        case kRecoilAdjust:
+            return "Uses the recoil values in balance.toml to rebalance how much each weapon kicks.";
         default: return "";
     }
 }
@@ -366,7 +367,7 @@ bool* ToggleFlag(Settings& s, int id) {
         case kPerDifficultyRebalance: return &o.per_difficulty_rebalance;
         case kRealisticClips: return &o.realistic_clips;
         case kRangeAdjust: return &o.range_adjust;
-        case kFireRateAdjust: return &o.fire_rate_adjust;
+        case kRecoilAdjust: return &o.recoil_adjust;
         default: return nullptr;
     }
 }
