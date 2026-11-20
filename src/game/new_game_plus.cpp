@@ -58,7 +58,7 @@ void StartWeapon(X86Context& ctx, uint32_t& lo, uint32_t& hi) {
     uint32_t kind = weapon_kinds::OfRecord(WeaponRecord(record));
     uint32_t entry = weapon_kinds::Entry(kind);
     if (!entry) {
-        LOGR("new game+: no weapon kind for %s, the game's start weapon", kWeaponNames[record]);
+        LOGW("new game+: no weapon kind for %s, the game's start weapon", kWeaponNames[record]);
         return;
     }
     X86Context saved = ctx;
