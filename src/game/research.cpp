@@ -17,6 +17,7 @@
 //   each change of the weapon in hand's state or the player's animation
 //   F5 / Shift+F5: the weapon in hand becomes the next / previous weapon of the game, full clip and spare ammo
 //   every file the game opens, weapon files in black.log too
+//   each stage's pickup list and loaded file slots, in black.log too
 // Nothing in the game is changed, but F9's candidate, F11's reload speed and F5's weapon.
 #include <algorithm>
 #include <chrono>
@@ -564,6 +565,61 @@ void GiveWeapon(FILE* f, X86Context& ctx, int step, uint32_t frame) {
     std::fflush(f);
 }
 
+// At each stage's start, once its pickups are set: the pickup list (each entry's weapon kind, its model's name and
+// whether this stage has the model) and the 17 slots of loaded files, to see what borrowing a pickup model needs
+constexpr uint32_t kPickups = 0x2D0D64;     // -> +kPickupList -> +0 byte the count, +8 the pickups
+constexpr uint32_t kPickupList = 0x5844;
+constexpr uint32_t kPickupModels = 0x5800;  // -> a model each pickup, 0 until looked up
+constexpr uint32_t kPickupSize = 0x18;      // +8 +0xC its model's name, +0x10 byte its weapon kind
+constexpr uint32_t kResources = 0x2D45D8;   // -> +kFileSlots: kFileSlotCount slots of kFileSlotSize
+constexpr uint32_t kFileSlots = 0xD10;
+constexpr uint32_t kFileSlotCount = 17;
+constexpr uint32_t kFileSlotSize = 0x0C;
+constexpr uint32_t kFindResource = 0x1F83E0;  // stdcall ([kResources], name, name): the resource, 0 none
+
+void LogPickups(FILE* f, X86Context& ctx) {
+    static uint32_t logged;
+    uint32_t pickups = R32(kPickups);
+    uint32_t list = pickups ? R32(pickups + kPickupList) : 0;
+    if (!list || list == logged) return;
+    logged = list;
+    uint32_t world = R32(kWorld);
+    uint8_t count = G<uint8_t>(list);
+    uint32_t entries = R32(list + 8);
+    uint32_t models = R32(pickups + kPickupModels);
+    uint32_t resources = R32(kResources);
+    std::fprintf(f, "\n=== pickups, level %d: %u at %08X, models %08X\n", world ? int(G<uint8_t>(world + kWorldLevel)) : -1,
+                 count, entries, models);
+    LOGR("pickups: %u, level %d", count, world ? int(G<uint8_t>(world + kWorldLevel)) : -1);
+    X86Context saved = ctx;
+    for (uint8_t i = 0; i < count && entries; i++) {
+        uint32_t entry = entries + i * kPickupSize;
+        uint8_t kind = G<uint8_t>(entry + 0x10);
+        uint32_t lo = R32(entry + 8);
+        uint32_t hi = R32(entry + 0xC);
+        uint32_t cached = models ? R32(models + i * 4) : 0;
+        uint32_t found = CallGuest(ctx, kFindResource, {resources, lo, hi});
+        uint32_t data = R32(weapon_kinds::Entry(kind) + 8);
+        std::fprintf(f, "  %2u kind %2u %-9s model %08X%08X cached %08X, in this stage %08X; words", i, kind,
+                     RecordName(data), hi, lo, cached, found);
+        for (uint32_t at = 0; at < kPickupSize; at += 4) std::fprintf(f, " %08X", R32(entry + at));
+        std::fprintf(f, "\n");
+        LOGR("  pickup %u: kind %u %s, model %08X%08X %s", i, kind, RecordName(data), hi, lo,
+             found ? "in this stage" : "NOT in this stage");
+    }
+    ctx = saved;
+    uint32_t used = 0;
+    std::fprintf(f, "file slots of %08X:\n", resources);
+    for (uint32_t s = 0; s < kFileSlotCount && resources; s++) {
+        uint32_t slot = resources + kFileSlots + s * kFileSlotSize;
+        std::fprintf(f, "  slot %2u: %08X %08X %08X\n", s, R32(slot), R32(slot + 4), R32(slot + 8));
+        if (R32(slot + 8)) used++;
+    }
+    std::fprintf(f, "  %u of %u slots with a file\n", used, kFileSlotCount);
+    LOGR("file slots: %u of %u with a file", used, kFileSlotCount);
+    std::fflush(f);
+}
+
 
 // Every file the game opens (game_files.cpp): all go to research.log, those of the levels' guns and weapons to
 // black.log as well, with the weapon in hand, to see which weapon files a level loads and when
@@ -664,7 +720,9 @@ void BetweenFrames(X86Context& ctx) {
     FILE* f = Log();
     int step = g_give_step;
     g_give_step = 0;
-    if (!f || !step || !R32(kWorld)) return;
+    if (!f || !R32(kWorld)) return;
+    LogPickups(f, ctx);
+    if (!step) return;
     static uint32_t swaps;
     GiveWeapon(f, ctx, step, ++swaps);
     static std::string note;
