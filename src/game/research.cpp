@@ -6,10 +6,12 @@
 //   F6: the player, the weapon and its data, the words that changed since the last F6
 //   the player's health as it starts: its health, the +0x3D0 it came from and the difficulty
 //   each hit that lowers a character's health, at the stores of the damage functions: before, after, difficulty
-// On screen, under the FPS counter: the player's health, the difficulty and the last character other than the player
-// that was hit, its health over its health before its first hit.
+// On screen, under the FPS counter: WEAPON LOGGING: ON, a note for a few seconds after F6 F7 F8, the player's
+// health, the difficulty and the last character other than the player that was hit, its health over its health
+// before its first hit.
 // Nothing in the game is changed.
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -56,6 +58,15 @@ constexpr uint32_t kTypeZones = 0x3C;
 constexpr uint32_t kZoneSize = 12;
 constexpr int kZonesLogged = 16;  // entries written the first time a table is seen
 std::vector<uint32_t> g_zone_tables;
+
+// the note a research key leaves on screen for a few seconds
+constexpr auto kNoteTime = std::chrono::seconds(3);
+const char* g_note;
+std::chrono::steady_clock::time_point g_note_until;
+void Note(const char* text) {
+    g_note = text;
+    g_note_until = std::chrono::steady_clock::now() + kNoteTime;
+}
 
 // character types sit in one array, by id
 constexpr uint32_t kTypeSize = 0x40;
@@ -285,6 +296,8 @@ void CharacterHealthStart(X86Context& ctx, uint8_t*) {
 namespace research {
 
 void OverlayLines(std::vector<std::string>& lines) {
+    if (Log()) lines.push_back("WEAPON LOGGING: ON");
+    if (g_note && std::chrono::steady_clock::now() < g_note_until) lines.push_back(g_note);
     if (!R32(kWorld)) return;
     char text[64];
     uint32_t player = Player();
@@ -311,6 +324,7 @@ void Tick() {
     frame++;
 
     if (Pressed(kDumpKey)) {
+        Note("F7: WEAPON WRITTEN");
         std::fprintf(f, "\n=== frame %u: F7, weapon %08X\n", frame, weapon);
         Dump(f, "weapon", weapon, kWeaponBytes);
         Dump(f, "weapon data", data, kDataBytes);
@@ -322,6 +336,7 @@ void Tick() {
         in_hand = data;
     }
     if (Pressed(kTablesKey)) {
+        Note("F8: TABLES WRITTEN");
         std::fprintf(f, "\n=== frame %u: F8\n", frame);
         LogWeaponTable(f, data);
         LogTypes(f);
@@ -329,6 +344,7 @@ void Tick() {
 
     static Snapshot snapshots[] = {{"player"}, {"weapon"}, {"weapon data"}};
     if (Pressed(kDiffKey)) {
+        Note("F6: CHANGES WRITTEN");
         static int count;
         std::fprintf(f, "\n=== F6 #%d, frame %u\n", ++count, frame);
         Diff(f, snapshots[0], player, kPlayerBytes);
