@@ -641,6 +641,11 @@ call = "Hit1E795B"
 at = 0x1ED7CB
 call = "Hit1ED7CB"
 
+# src/game/research.cpp, a hit's damage from the zone table (temporary)
+[[hook]]
+at = 0x1E77F9
+call = "HitDamage"
+
 # src/game/ambient_occlusion.cpp
 [[hook]]
 at = 0x1EE9A5

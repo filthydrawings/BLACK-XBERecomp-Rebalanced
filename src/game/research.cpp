@@ -1,5 +1,5 @@
 // Research logger, temporary: finds the guest fields that hold a weapon's clip size, range and damage and a
-// character's health. Writes logs\research.log beside the exe.
+// character's health. Appends to logs\research.log beside the exe, a line === launch at each start.
 //   F7: the weapon object and its data block, as words
 //   F6: the player, the weapon and its data, the words that changed since the last F6
 //   the player's health as it starts: its health, the +0x3D0 it came from and the difficulty
@@ -45,6 +45,15 @@ constexpr uint32_t kCharacterHealth = 0x2F0;     // float
 constexpr uint32_t kCharacterHealthFrom = 0x3D0;  // float, copied to the health as a character starts
 constexpr size_t kMostCharacters = 512;
 
+// character type, [character+0x320]: +4 its id, +0x3C a pointer to its hit zone table
+constexpr uint32_t kCharacterType = 0x320;
+constexpr uint32_t kTypeId = 0x04;
+constexpr uint32_t kTypeZones = 0x3C;
+// hit zone entry: the damage share from the front and from the back, then two instant kill flags
+constexpr uint32_t kZoneSize = 12;
+constexpr int kZonesLogged = 16;  // entries written the first time a table is seen
+std::vector<uint32_t> g_zone_tables;
+
 // characters that were hit, with their health before the first hit
 struct Character {
     uint32_t va;
@@ -60,7 +69,9 @@ FILE* Log() {
         std::filesystem::path dir = std::filesystem::path(exe).parent_path() / "logs";
         std::error_code ec;
         std::filesystem::create_directories(dir, ec);
-        return _wfopen((dir / "research.log").c_str(), L"w");
+        FILE* f = _wfopen((dir / "research.log").c_str(), L"a");
+        if (f) std::fprintf(f, "\n=== launch\n");
+        return f;
     }();
     return file;
 }
@@ -144,6 +155,18 @@ void Hit(const char* site, uint32_t character, float after) {
     }
 }
 
+// a zone table, the first time it is seen: each entry's two shares and flags
+void LogZones(FILE* f, uint32_t table) {
+    if (!table || std::find(g_zone_tables.begin(), g_zone_tables.end(), table) != g_zone_tables.end()) return;
+    g_zone_tables.push_back(table);
+    std::fprintf(f, "zone table %08X:\n", table);
+    for (int zone = 0; zone < kZonesLogged; zone++) {
+        uint32_t entry = table + zone * kZoneSize;
+        std::fprintf(f, "  zone %2d  front %g  back %g  flags %u %u\n", zone, G<float>(entry), G<float>(entry + 4),
+                     G<uint8_t>(entry + 8), G<uint8_t>(entry + 9));
+    }
+}
+
 }  // namespace
 
 // the damage functions' health stores, each before its write: the character's register and the new health's.
@@ -167,6 +190,24 @@ RESEARCH_HIT(1EDA94, ebx, 1)
 RESEARCH_HIT(1E795B, ebx, 0)
 RESEARCH_HIT(1ED7CB, edi, 0)
 #undef RESEARCH_HIT
+
+// sub_001E74B0 at 0x1E77F9, after call 0x1CC1A0: xmm0 a hit's damage, ebx the character hit, esi the attacker and
+// [ebp+0x18] the zone hit. The damage is 100 times the zone's front or back share in the character type's table
+void HitDamage(X86Context& ctx, uint8_t*) {
+    FILE* f = Log();
+    if (!f) return;
+    uint32_t character = ctx.ebx;
+    uint32_t type = R32(character + kCharacterType);
+    uint32_t table = type ? R32(R32(type + kTypeZones)) : 0;
+    int zone = int8_t(G<uint8_t>(ctx.ebp + 0x18));
+    uint32_t entry = table + uint32_t(zone) * kZoneSize;
+    std::fprintf(f, "damage %g: character %08X type %08X id %u zone %d front %g back %g, attacker %08X%s, difficulty %u\n",
+                 ctx.xmm[0].f[0], character, type, type ? R32(type + kTypeId) : 0, zone,
+                 table ? G<float>(entry) : 0.0f, table ? G<float>(entry + 4) : 0.0f, ctx.esi,
+                 ctx.esi == Player() ? " (the player)" : "", Difficulty());
+    LogZones(f, table);
+    std::fflush(f);
+}
 
 // sub_001DEC70 at 0x1DF229, mov [ebx+0x2F0], ecx: the player's health as it starts, from its +0x3D0
 void CharacterHealthStart(X86Context& ctx, uint8_t*) {
