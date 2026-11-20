@@ -627,8 +627,6 @@ void LogPickups(FILE* f, X86Context& ctx) {
 // given a key of its own and a use count of 1. Every step, the slots and the pack places are logged; anything full or
 // unexpected leaves the weapon to vanish when dropped, as before. Only on F12, once in control: done on its own as the
 // stage started, the first lookup crashed.
-constexpr uint32_t kQueue = 0x1F37E0;       // eax the loading slot, ecx the path, edx [kResources], 6 arguments
-constexpr uint32_t kFileIn = 0x1D3790;      // the loading slot's callback: files the pack in a type 0xC slot
 constexpr uint32_t kGunsSlot = 8;           // the loading slot the stage's Guns.bin uses
 constexpr uint32_t kLoadSize = 0x13C;       // a loading slot: +0x134 byte busy
 constexpr uint32_t kLoadBusy = 0x134;
@@ -650,7 +648,6 @@ struct Borrow {
 };
 Borrow g_borrow;
 uint32_t g_borrow_world;
-uint32_t g_path;  // guest room for the path
 
 // the pickup of a kind: its model's name, false without one
 bool PickupModelName(uint8_t kind, uint32_t& lo, uint32_t& hi) {
@@ -684,7 +681,7 @@ std::string PackWith(uint32_t lo, uint32_t hi) {
             while (std::fread(entry, 4, 4, f) == 4 && (entry[1] >> 16) == 0x5446)
                 if (entry[0] == lo && entry[1] == hi) found = true;
             std::fclose(f);
-            if (found) return name + 2;  // without D:, as the game's own path
+            if (found) return name + 3;  // without D:\, as the game's own path
         }
     }
     return "";
@@ -791,17 +788,12 @@ void BorrowPickupModel(FILE* f, X86Context& ctx) {
         LOGR("borrow: no level has kind %u's pickup model", kind);
         return;
     }
-    if (!g_path) g_path = mem::AllocSystem(0x100);
-    std::snprintf(static_cast<char*>(HostPtr(g_path)), 0x100, "%s", path.c_str());
-    std::fprintf(f, "borrow: queueing %s\n", path.c_str());
-    LOGR("borrow: kind %u's pickup model from %s", kind, path.c_str());
+    // Not loaded: queued in loading slot 8 (the only one the game's loads use, with 6), it crashed. The level load
+    // (sub_001EDC90) and the other loaders poll slot 8 (sub_00013D90) and took its result for one of their own; no
+    // loading slot is known to be free of a poller. So F12 only logs what it would load
+    std::fprintf(f, "borrow: would load %s; loading it is off, the weapon vanishes when dropped\n", path.c_str());
+    LOGR("borrow: kind %u's pickup model is in %s; loading it is off", kind, path.c_str());
     std::fflush(f);
-    ctx.eax = kGunsSlot;
-    ctx.ecx = g_path;
-    ctx.edx = resources;
-    CallGuest(ctx, kQueue, {1, kFileIn, world, 0x17, 1, 0x2000000});
-    ctx = saved;
-    g_borrow.state = 1;
 }
 
 
