@@ -228,9 +228,48 @@ uint32_t Difficulty() { return std::min(R32(R32(kGame) + kGameDifficulty), kDiff
 // the table a difficulty plays: its own, or normal's with per difficulty rebalancing off
 uint32_t TableFor(uint32_t difficulty) { return game::Opt().per_difficulty_rebalance ? difficulty : kNormal; }
 
+// Reload speed: a reload plays the player's reload animation, and its clip refills as the animation reaches the
+// point it does, so the animation's playback speed sets the reload's. From the weapon going to its reload state while
+// a reload animation plays, the clip's speed is written each frame (the game may write its own), and given back once
+// that animation ends or the speed asked for is 1 again
+constexpr uint32_t kAnimationNameBytes = 26;  // the controller's name, to its second copy at +0x76
+struct SpedClip {
+    uint32_t clip = 0;  // 0 none
+    float before = 0;   // its speed before
+    float set = 0;      // the speed written
+};
+SpedClip g_sped;
+
+bool IsReloadAnimation(const std::string& name) {
+    return name.size() >= 4 && name.compare(name.size() - 4, 4, "_101") == 0;
+}
+
 }  // namespace
 
 namespace rebalance {
+
+void ApplyReloadSpeed(uint32_t weapon, float speed) {
+    uint32_t ac = R32(Player() + kCharacterAnimation);
+    uint32_t clip = ac ? R32(ac + kAnimClip) : 0;
+    std::string name = ac ? ReadCString(ac + kAnimName, kAnimationNameBytes) : "";
+    bool reloading = weapon && R32(weapon + kWeaponState) == kWeaponReloading;
+    bool playing = clip && IsReloadAnimation(name);
+    bool on = speed != 1.0f;
+    if (g_sped.clip && (!on || !playing || clip != g_sped.clip)) {
+        LOGI("reload speed: clip %08X back to speed %g, \"%s\" playing", g_sped.clip, g_sped.before, name.c_str());
+        G<float>(g_sped.clip + kAnimClipSpeed) = g_sped.before;
+        g_sped.clip = 0;
+    }
+    if (!g_sped.clip && on && playing && reloading) {
+        float before = G<float>(clip + kAnimClipSpeed);
+        g_sped = {clip, before, (before != 0 ? before : 1.0f) * speed};
+        G<float>(clip + kAnimClipSpeed) = g_sped.set;
+        LOGI("reload speed: clip %08X \"%s\" at frame %g, speed %g -> %g", clip, name.c_str(),
+             G<float>(clip + kAnimClipFrame), before, g_sped.set);
+    } else if (g_sped.clip && G<float>(clip + kAnimClipSpeed) != g_sped.set) {
+        G<float>(clip + kAnimClipSpeed) = g_sped.set;
+    }
+}
 
 void Tick() {
     if (!g_loaded) {
