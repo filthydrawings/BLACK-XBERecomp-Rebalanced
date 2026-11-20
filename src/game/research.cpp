@@ -432,7 +432,7 @@ void TrackReloads(FILE* f, uint32_t weapon, uint32_t data, uint32_t frame) {
     last_state = state;
 }
 
-// F11: the player's reload animations at kReloadSpeed whatever the settings (rebalance::OverrideReloadSpeed), to
+// F11: the player's reload animations at kReloadSpeed whatever the settings (rebalance::OverrideAnimationSpeeds), to
 // compare with the game's
 constexpr int kReloadSpeedKey = VK_F11;
 constexpr float kReloadSpeed = 2.0f;
@@ -719,7 +719,7 @@ void Tick() {
         Note(g_give_step > 0 ? "F5: NEXT WEAPON" : "F5: WEAPON BEFORE");
     }
     TrackReloads(f, weapon, data, frame);
-    rebalance::OverrideReloadSpeed(g_reload_speed_on ? kReloadSpeed : 0.0f);
+    rebalance::OverrideAnimationSpeeds(g_reload_speed_on ? kReloadSpeed : 0.0f);
     LogStates(f, weapon, frame);
 
     static Snapshot snapshots[] = {{"player"}, {"weapon"}, {"weapon data"}};

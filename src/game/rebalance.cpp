@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <iterator>
 #include <map>
@@ -79,10 +80,23 @@ constexpr size_t kFields = std::size(kWeaponFields);
 enum { kClipField, kRangeField, kRecoilField };
 using FieldValues = std::array<std::optional<double>, kWeaponRecords>;
 std::array<FieldValues, kFields> g_weapons;  // by field, from the file
-FieldValues g_reload;  // reload speed multipliers, clamped to kLeastReload to kMostReload
-constexpr double kLeastReload = 0.25;
-constexpr double kMostReload = 4.0;
-float g_reload_override;  // a speed for every reload whatever the settings, 0 none
+// Animation speeds: an animation of the player's of a kind, by its name, plays at its weapon's speed for that kind.
+// A reload plays the reload animation, and the clip refills as the animation reaches the point it does, so the
+// animation's playback speed sets the reload's
+struct AnimationKind {
+    const char* key;     // its speed in each weapon's [weapons] entry
+    const char* suffix;  // the end of its animations' names
+    bool reloads;        // it starts only with the weapon in its reload state
+    bool game::Options::*toggle;
+};
+constexpr AnimationKind kAnimationKinds[] = {
+    {"reload", "_101", true, &game::Options::reload_adjust},
+};
+constexpr size_t kKinds = std::size(kAnimationKinds);
+std::array<FieldValues, kKinds> g_speeds;  // by kind, clamped to kLeastSpeed to kMostSpeed
+constexpr double kLeastSpeed = 0.25;
+constexpr double kMostSpeed = 4.0;
+float g_speed_override;  // a speed for every kind whatever the settings, 0 none
 bool g_loaded;
 
 fs::path FilePath() {
@@ -117,7 +131,7 @@ std::optional<std::array<float, kRowSize>> ReadRow(const toml::node* node) {
 void Load() {
     g_settings.clear();
     g_weapons = {};
-    g_reload = {};
+    g_speeds = {};
     fs::path path = FilePath();
     if (!fs::exists(path)) {
         LOGI("balance.toml: none beside the exe, the game's own values");
@@ -137,12 +151,14 @@ void Load() {
             if (w < 0 || !weapon) continue;
             for (size_t f = 0; f < kFields; f++)
                 if (auto v = (*weapon)[kWeaponFields[f].key].value<double>()) g_weapons[f][w] = *v;
-            if (auto v = (*weapon)["reload"].value<double>()) {
-                double speed = std::clamp(*v, kLeastReload, kMostReload);
+            for (size_t k = 0; k < kKinds; k++) {
+                auto v = (*weapon)[kAnimationKinds[k].key].value<double>();
+                if (!v) continue;
+                double speed = std::clamp(*v, kLeastSpeed, kMostSpeed);
                 if (speed != *v)
-                    LOGW("balance.toml: weapons.%s.reload %g is out of %g to %g, %g it is", kWeaponNames[w], *v,
-                         kLeastReload, kMostReload, speed);
-                g_reload[w] = speed;
+                    LOGW("balance.toml: weapons.%s.%s %g is out of %g to %g, %g it is", kWeaponNames[w],
+                         kAnimationKinds[k].key, *v, kLeastSpeed, kMostSpeed, speed);
+                g_speeds[k][w] = speed;
             }
         }
     }
@@ -238,17 +254,17 @@ uint32_t Difficulty() { return std::min(R32(R32(kGame) + kGameDifficulty), kDiff
 // the table a difficulty plays: its own, or normal's with per difficulty rebalancing off
 uint32_t TableFor(uint32_t difficulty) { return game::Opt().per_difficulty_rebalance ? difficulty : kNormal; }
 
-// Reload speed: a reload plays the player's reload animation, and its clip refills as the animation reaches the
-// point it does, so the animation's playback speed sets the reload's. From the weapon going to its reload state while
-// a reload animation plays, the clip's speed is written each frame (the game may write its own), and given back once
-// that animation ends or the speed asked for is 1 again
+// From an animation of a kind starting (a reload's with the weapon in its reload state) the clip's speed is written
+// each frame, the game may write its own, and given back once that animation ends or its speed is 1 again
 constexpr uint32_t kAnimationNameBytes = 26;  // the controller's name, to its second copy at +0x76
 struct SpedClip {
     uint32_t clip = 0;  // 0 none
+    size_t kind = 0;
     float before = 0;   // its speed before
     float set = 0;      // the speed written
 };
 SpedClip g_sped;
+using Speeds = std::array<float, kKinds>;
 
 // the record's place in the array, kWeaponRecords for none
 uint32_t RecordIndex(uint32_t data) {
@@ -257,46 +273,57 @@ uint32_t RecordIndex(uint32_t data) {
     return at % kWeaponRecordSize ? kWeaponRecords : std::min(at / kWeaponRecordSize, kWeaponRecords);
 }
 
-// the speed of the weapon in hand's reloads: the override, else its reload with Reload speed adjustments on
-float ReloadSpeed(uint32_t weapon) {
-    if (g_reload_override > 0) return g_reload_override;
+// the weapon in hand's speed of each kind: the override, else its own with the kind's toggle on, else 1
+Speeds AnimationSpeeds(uint32_t weapon) {
+    Speeds speeds;
     uint32_t w = weapon ? RecordIndex(R32(weapon + kWeaponData)) : kWeaponRecords;
-    if (!game::Opt().reload_adjust || w >= kWeaponRecords) return 1.0f;
-    return float(g_reload[w].value_or(1.0));
+    for (size_t k = 0; k < kKinds; k++) {
+        if (g_speed_override > 0) speeds[k] = g_speed_override;
+        else if (!(game::Opt().*kAnimationKinds[k].toggle) || w >= kWeaponRecords) speeds[k] = 1.0f;
+        else speeds[k] = float(g_speeds[k][w].value_or(1.0));
+    }
+    return speeds;
 }
 
-bool IsReloadAnimation(const std::string& name) {
-    return name.size() >= 4 && name.compare(name.size() - 4, 4, "_101") == 0;
+// the kind of an animation by its name, kKinds for none
+size_t KindOf(const std::string& name) {
+    for (size_t k = 0; k < kKinds; k++) {
+        size_t n = std::strlen(kAnimationKinds[k].suffix);
+        if (name.size() >= n && name.compare(name.size() - n, n, kAnimationKinds[k].suffix) == 0) return k;
+    }
+    return kKinds;
 }
 
-}  // namespace
-
-namespace rebalance {
-
-void ApplyReloadSpeed(uint32_t weapon, float speed) {
+// the player's animation at its kind's speed times the game's while it plays, the game's speed given back once it
+// ends; a speed of 1 leaves the game's
+void ApplyAnimationSpeeds(uint32_t weapon, const Speeds& speeds) {
     uint32_t ac = R32(Player() + kCharacterAnimation);
     uint32_t clip = ac ? R32(ac + kAnimClip) : 0;
     std::string name = ac ? ReadCString(ac + kAnimName, kAnimationNameBytes) : "";
     bool reloading = weapon && R32(weapon + kWeaponState) == kWeaponReloading;
-    bool playing = clip && IsReloadAnimation(name);
-    bool on = speed != 1.0f;
-    if (g_sped.clip && (!on || !playing || clip != g_sped.clip)) {
-        LOGI("reload speed: clip %08X back to speed %g, \"%s\" playing", g_sped.clip, g_sped.before, name.c_str());
+    size_t kind = clip ? KindOf(name) : kKinds;
+    if (g_sped.clip && (kind != g_sped.kind || clip != g_sped.clip || speeds[g_sped.kind] == 1.0f)) {
+        LOGI("%s speed: clip %08X back to speed %g, \"%s\" playing", kAnimationKinds[g_sped.kind].key, g_sped.clip,
+             g_sped.before, name.c_str());
         G<float>(g_sped.clip + kAnimClipSpeed) = g_sped.before;
         g_sped.clip = 0;
     }
-    if (!g_sped.clip && on && playing && reloading) {
+    if (!g_sped.clip && kind < kKinds && speeds[kind] != 1.0f && (!kAnimationKinds[kind].reloads || reloading)) {
         float before = G<float>(clip + kAnimClipSpeed);
-        g_sped = {clip, before, (before != 0 ? before : 1.0f) * speed};
+        g_sped = {clip, kind, before, (before != 0 ? before : 1.0f) * speeds[kind]};
         G<float>(clip + kAnimClipSpeed) = g_sped.set;
-        LOGI("reload speed: clip %08X \"%s\" at frame %g, speed %g -> %g", clip, name.c_str(),
+        LOGI("%s speed: clip %08X \"%s\" at frame %g, speed %g -> %g", kAnimationKinds[kind].key, clip, name.c_str(),
              G<float>(clip + kAnimClipFrame), before, g_sped.set);
     } else if (g_sped.clip && G<float>(clip + kAnimClipSpeed) != g_sped.set) {
         G<float>(clip + kAnimClipSpeed) = g_sped.set;
     }
 }
 
-void OverrideReloadSpeed(float speed) { g_reload_override = speed; }
+}  // namespace
+
+namespace rebalance {
+
+void OverrideAnimationSpeeds(float speed) { g_speed_override = speed; }
 
 void Tick() {
     if (!R32(kWorld)) return;
@@ -306,7 +333,7 @@ void Tick() {
     }
     if (WeaponToggles() != g_applied && ApplyWeapons()) g_applied = WeaponToggles();
     uint32_t weapon = R32(Player() + kPlayerWeapon);
-    ApplyReloadSpeed(weapon, ReloadSpeed(weapon));
+    ApplyAnimationSpeeds(weapon, AnimationSpeeds(weapon));
 }
 
 }  // namespace rebalance

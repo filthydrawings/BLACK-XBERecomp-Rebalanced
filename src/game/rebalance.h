@@ -5,10 +5,8 @@
 namespace rebalance {
 
 void Tick();  // game thread, once a frame of play: reads the file and applies the clips once the first level loads
-// game thread, once a frame of play: the player's reload animation at speed times the game's while the weapon in
-// hand reloads, the game's speed given back once it ends; 1 leaves the game's
-void ApplyReloadSpeed(uint32_t weapon, float speed);
-// every reload at that speed whatever the settings and balance.toml, the research logger's F11; 0 for none
-void OverrideReloadSpeed(float speed);
+// every sped up kind of animation (reloads) at that speed whatever the settings and balance.toml, the research
+// logger's F11; 0 for none
+void OverrideAnimationSpeeds(float speed);
 
 }  // namespace rebalance
