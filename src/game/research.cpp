@@ -15,7 +15,8 @@
 //   the player's animation and the words of its controller and clip that changed
 //   F11: reload animations at twice their speed, on or off, to see whether reloads shorten with them
 //   each change of the weapon in hand's state or the player's animation
-// Nothing in the game is changed, but F9's candidate and F11's reload speed.
+//   F5 / Shift+F5: the weapon in hand becomes the next / previous weapon of the game, full clip and spare ammo
+// Nothing in the game is changed, but F9's candidate, F11's reload speed and F5's weapon.
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -456,6 +457,88 @@ void LogStates(FILE* f, uint32_t weapon, uint32_t frame) {
     last_name = name;
 }
 
+
+// F5: the weapon in hand becomes the next weapon of the game's weapon table, Shift+F5 the one before, the way the
+// game's own give-weapon event does it (sub_001E8830): the character takes the weapon's model (sub_001C5CD0), the
+// weapon object lets go of its magazines (sub_001C2A30) and is set up again as the new kind (sub_001C9FA0). Then a
+// full clip and kSpareClips clips of spare ammo. The weapon records hold the rebalanced stats, so the weapon given
+// has them.
+constexpr int kWeaponKey = VK_F5;
+constexpr uint32_t kWeaponKinds = 0x2D12D0;  // -> -> +1 byte the count, +4 the kinds, kWeaponKindSize each
+constexpr uint32_t kWeaponKindSize = 0x20;   // +0 and +4 its name's hash, +8 its weapon data
+constexpr uint32_t kWeaponKind = 0;          // byte, in the weapon object: its place in the table
+constexpr uint32_t kTakeModel = 0x1C5CD0;    // ebx the character, (hash, hash)
+constexpr uint32_t kLetGo = 0x1C2A30;        // ebx the weapon
+constexpr uint32_t kSetUp = 0x1C9FA0;        // al the kind, ecx the character, edx the weapon, (0)
+constexpr int kSpareClips = 4;
+
+uint32_t WeaponKinds() {
+    uint32_t holder = R32(kWeaponKinds);
+    return holder ? R32(holder) : 0;
+}
+
+// the kinds whose data is one of the weapon records, in the table's order
+std::vector<uint32_t> GunKinds() {
+    std::vector<uint32_t> guns;
+    uint32_t table = WeaponKinds();
+    if (!table) return guns;
+    uint32_t count = G<uint8_t>(table + 1);
+    uint32_t kinds = R32(table + 4);
+    for (uint32_t i = 0; i < count; i++)
+        if (std::strcmp(RecordName(R32(kinds + i * kWeaponKindSize + 8)), "?") != 0) guns.push_back(i);
+    return guns;
+}
+
+// "WEAPON: ak47 (6/16)" for the weapon in hand, empty without one
+std::string WeaponLine(uint32_t weapon) {
+    if (!weapon) return "";
+    std::vector<uint32_t> guns = GunKinds();
+    auto at = std::find(guns.begin(), guns.end(), uint32_t(G<uint8_t>(weapon + kWeaponKind)));
+    char line[64];
+    std::snprintf(line, sizeof line, "WEAPON: %s (%zu/%zu)", RecordName(R32(weapon + kWeaponData)),
+                  at == guns.end() ? size_t(0) : size_t(at - guns.begin()) + 1, guns.size());
+    return line;
+}
+
+void GiveWeapon(FILE* f, int step, uint32_t frame) {
+    uint32_t player = Player();
+    uint32_t weapon = R32(player + kPlayerWeapon);
+    std::vector<uint32_t> guns = GunKinds();
+    if (!weapon || guns.empty()) {
+        std::fprintf(f, "\n=== frame %u: F5, no weapon in hand or no weapon table (%zu kinds)\n", frame, guns.size());
+        return;
+    }
+    RestoreExaggerated(f);
+    size_t n = guns.size();
+    auto at = std::find(guns.begin(), guns.end(), uint32_t(G<uint8_t>(weapon + kWeaponKind)));
+    size_t next = at == guns.end() ? (step > 0 ? 0 : n - 1) : (size_t(at - guns.begin()) + n + step) % n;
+    uint32_t kind = guns[next];
+    uint32_t entry = R32(WeaponKinds() + 4) + kind * kWeaponKindSize;
+    const char* from = RecordName(R32(weapon + kWeaponData));
+    X86Context& ctx = CurrentContext();
+    X86Context saved = ctx;
+    ctx.ebx = player;
+    CallGuest(ctx, kTakeModel, {R32(entry), R32(entry + 4)});
+    ctx.ebx = weapon;
+    CallGuest(ctx, kLetGo, {});
+    ctx.eax = kind;
+    ctx.ecx = player;
+    ctx.edx = weapon;
+    CallGuest(ctx, kSetUp, {0});
+    ctx = saved;
+    uint32_t data = R32(weapon + kWeaponData);
+    int32_t clip = data ? int32_t(R32(data + kDataClip)) : 0;
+    uint32_t magazine = R32(weapon + kWeaponMagazine);
+    if (magazine && clip > 0) G<uint16_t>(magazine + kMagazineRounds) = uint16_t(clip);
+    uint32_t spare = R32(weapon + kWeaponSpareAmmo);
+    if (spare && data && clip > 0) {
+        uint16_t& left = G<uint16_t>(spare + R32(data + kDataAmmoType) * 2);
+        left = std::max<uint16_t>(left, uint16_t(std::min(clip * kSpareClips, 0xFFFF)));
+    }
+    std::fprintf(f, "\n=== frame %u: F5, weapon %08X %s -> kind %u %s (record %08X), magazine %08X rounds %u, spare %u\n",
+                 frame, weapon, from, kind, RecordName(data), data, magazine, Rounds(weapon), Spare(weapon, data));
+}
+
 }  // namespace
 
 // the damage functions' health stores, each before its write: the character's register and the new health's.
@@ -519,6 +602,10 @@ void OverlayLines(std::vector<std::string>& lines) {
     if (g_note && std::chrono::steady_clock::now() < g_note_until) lines.push_back(g_note);
     if (Log()) lines.push_back(g_exaggerate_line);
     if (Log()) lines.push_back(g_reload_speed_on ? "RELOAD x2: ON" : "RELOAD x2: OFF");
+    if (Log() && R32(kWorld)) {
+        std::string line = WeaponLine(R32(Player() + kPlayerWeapon));
+        if (!line.empty()) lines.push_back(line);
+    }
     if (uint32_t weapon = R32(kWorld) ? R32(Player() + kPlayerWeapon) : 0) {
         uint32_t data = R32(weapon + kWeaponData);
         char clip[64];
@@ -582,6 +669,14 @@ void Tick() {
         g_reload_speed_on = !g_reload_speed_on;
         Note(g_reload_speed_on ? "F11: RELOAD x2 ON" : "F11: RELOAD x2 OFF");
         std::fprintf(f, "\n=== frame %u: F11, reload x%g %s\n", frame, kReloadSpeed, g_reload_speed_on ? "on" : "off");
+    }
+    if (Pressed(kWeaponKey)) {
+        GiveWeapon(f, GetAsyncKeyState(VK_SHIFT) & 0x8000 ? -1 : 1, frame);
+        weapon = R32(player + kPlayerWeapon);
+        data = weapon ? R32(weapon + kWeaponData) : 0;
+        static std::string note;
+        note = "F5: " + WeaponLine(weapon);
+        Note(note.c_str());
     }
     TrackReloads(f, weapon, data, frame);
     rebalance::OverrideReloadSpeed(g_reload_speed_on ? kReloadSpeed : 0.0f);
