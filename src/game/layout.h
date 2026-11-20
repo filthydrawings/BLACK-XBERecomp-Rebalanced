@@ -75,9 +75,9 @@ constexpr uint32_t kWeaponRecords = 16;
 constexpr uint32_t kWeaponRecordSize = 0x1E0;
 constexpr uint32_t kDataClip = 0x60;  // int: the clip size
 constexpr uint32_t kDataRange = 0x14;  // float: its range, unconfirmed
-// float: seconds between shots, confirmed in play; changing it puts the weapon's animations out of step
+// float: the firing interval, seconds between shots, confirmed; changing it desyncs the animations, never written
 constexpr uint32_t kDataFireGap = 0x20;
-constexpr uint32_t kDataRecoil = 0x68;  // float: recoil, confirmed in play (uzi 5.5, sniper 1)
+constexpr uint32_t kDataRecoil = 0x68;  // float: the recoil kick of a shot, confirmed by test (uzi 5.5, sniper 1)
 constexpr uint32_t kWeaponRecordsAt = 0x8227D330;  // record 0, in GlobData.bin, mapped at 0x820BE000
 // the records in order, as balance.toml names them
 inline constexpr const char* kWeaponNames[kWeaponRecords] = {

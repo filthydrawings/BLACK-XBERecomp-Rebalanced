@@ -203,8 +203,9 @@ void LogWeaponTable(FILE* f, uint32_t data) {
     uint32_t r = first;
     for (uint32_t i = 0; i < kMostRecords && IsWeaponRecord(r); i++, r += kWeaponRecordSize) {
         std::fprintf(f, "record %2u %08X%s: clip %d ammo type %d  +14 %g +18 %g +44 %g +48 %g +68 %g  +160 %d +164 %d +168 %d\n",
-                     i, r, r == data ? " (in hand)" : "", int32_t(R32(r + 0x60)), int32_t(R32(r + 0x64)),
-                     G<float>(r + 0x14), G<float>(r + 0x18), G<float>(r + 0x44), G<float>(r + 0x48), G<float>(r + 0x68),
+                     i, r, r == data ? " (in hand)" : "", int32_t(R32(r + kDataClip)), int32_t(R32(r + 0x64)),
+                     G<float>(r + kDataRange), G<float>(r + 0x18), G<float>(r + 0x44), G<float>(r + 0x48),
+                     G<float>(r + kDataRecoil),
                      int32_t(R32(r + 0x160)), int32_t(R32(r + 0x164)), int32_t(R32(r + 0x168)));
         std::fprintf(f, "  words");
         for (uint32_t at = 0; at < kWeaponRecordSize; at += 4) std::fprintf(f, " %08X", R32(r + at));
@@ -537,7 +538,7 @@ void Tick() {
     static uint32_t in_hand;
     if (data != in_hand) {
         RestoreExaggerated(f);
-        std::fprintf(f, "weapon in hand: record %08X, clip %d\n", data, data ? int32_t(R32(data + 0x60)) : 0);
+        std::fprintf(f, "weapon in hand: record %08X, clip %d\n", data, data ? int32_t(R32(data + kDataClip)) : 0);
         in_hand = data;
     }
     if (Pressed(kTablesKey)) {
