@@ -17,8 +17,8 @@
 //   each change of the weapon in hand's state or the player's animation
 //   F5 / Shift+F5: the weapon in hand becomes the next / previous weapon of the game, full clip and spare ammo
 //   every file the game opens, weapon files in black.log too
-//   each stage's pickup list and loaded file slots, in black.log too
-//   F12: the weapon in hand's pickup model loaded from another level when the stage lacks it (BorrowPickupModel)
+//   F12: the pickup list and file slots, then the weapon in hand's pickup model loaded from another level when the
+//   stage lacks it (BorrowPickupModel); nothing of it runs before the key
 // Nothing in the game is changed, but F9's candidate, F11's reload speed and F5's weapon.
 #include <algorithm>
 #include <chrono>
@@ -579,13 +579,10 @@ constexpr uint32_t kFileSlotSize = 0x0C;
 constexpr uint32_t kFindResource = 0x1F83E0;  // stdcall ([kResources], name, name): the resource, 0 none
 
 void LogPickups(FILE* f, X86Context& ctx) {
-    static uint32_t logged;
     uint32_t pickups = R32(kPickups);
     uint32_t list = pickups ? R32(pickups + kPickupList) : 0;
     uint32_t world = R32(kWorld);
-    // once the stage's own pack is in, its models with it
-    if (!list || list == logged || !world || !R32(world + 0x5B34)) return;
-    logged = list;
+    if (!list || !world) return;
     uint8_t count = G<uint8_t>(list);
     uint32_t entries = R32(list + 8);
     uint32_t models = R32(pickups + kPickupModels);
@@ -601,7 +598,8 @@ void LogPickups(FILE* f, X86Context& ctx) {
         uint32_t hi = R32(entry + 0xC);
         uint32_t cached = models ? R32(models + i * 4) : 0;
         uint32_t found = cached;  // no lookup: one while the stage still loads crashed (sub_001F83E0)
-        uint32_t data = R32(weapon_kinds::Entry(kind) + 8);
+        uint32_t kind_entry = weapon_kinds::Entry(kind);  // 0 for a kind past the table: the stage start crash
+        uint32_t data = kind_entry ? R32(kind_entry + 8) : 0;
         std::fprintf(f, "  %2u kind %2u %-9s model %08X%08X cached %08X; words", i, kind, RecordName(data), hi, lo,
                      found);
         for (uint32_t at = 0; at < kPickupSize; at += 4) std::fprintf(f, " %08X", R32(entry + at));
@@ -721,13 +719,13 @@ bool g_borrow_asked;  // F12: borrow the weapon in hand's pickup model, once in 
 void BorrowPickupModel(FILE* f, X86Context& ctx) {
     uint32_t world = R32(kWorld);
     uint32_t resources = R32(kResources);
+    // nothing until F12 asks, or a borrowing waits for its pack
+    if (!g_borrow_asked && g_borrow.state != 1 && !(g_borrow.state != 0 && world != g_borrow_world)) return;
     if (!world || !resources || !R32(world + kWorldGuns)) return;
-    if (world != g_borrow_world || g_borrow.kind == 0xFF) {
-        if (world != g_borrow_world) {
-            LogSlots(f, "at a new level");
-            g_borrow = {};
-            g_borrow_world = world;
-        }
+    if (world != g_borrow_world) {
+        if (g_borrow.state != 0) LogSlots(f, "at a new level, after a borrowing");
+        g_borrow = {};
+        g_borrow_world = world;
     }
     uint32_t weapon = R32(Player() + kPlayerWeapon);
     if (!weapon) return;
@@ -754,6 +752,7 @@ void BorrowPickupModel(FILE* f, X86Context& ctx) {
     }
     if (!g_borrow_asked) return;
     g_borrow_asked = false;
+    LogPickups(f, ctx);
     if (g_borrow.state != 0 || kind == g_borrow.kind) {
         std::fprintf(f, "borrow: F12, already %d for kind %u\n", g_borrow.state, g_borrow.kind);
         return;
@@ -906,7 +905,6 @@ void BetweenFrames(X86Context& ctx) {
     int step = g_give_step;
     g_give_step = 0;
     if (!f || !R32(kWorld)) return;
-    LogPickups(f, ctx);
     BorrowPickupModel(f, ctx);
     if (!step) return;
     static uint32_t swaps;
