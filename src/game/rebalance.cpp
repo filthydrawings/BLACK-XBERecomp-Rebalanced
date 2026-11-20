@@ -161,7 +161,7 @@ void Load() {
                 if (!v) continue;
                 double speed = std::clamp(*v, kLeastSpeed, kMostSpeed);
                 if (speed != *v)
-                    LOGW("balance.toml: weapons.%s.%s %g is out of %g to %g, %g it is", kWeaponNames[w],
+                    LOGR("balance.toml: weapons.%s.%s %g is out of %g to %g, %g it is", kWeaponNames[w],
                          kAnimationKinds[k].key, *v, kLeastSpeed, kMostSpeed, speed);
                 g_speeds[k][w] = speed;
             }

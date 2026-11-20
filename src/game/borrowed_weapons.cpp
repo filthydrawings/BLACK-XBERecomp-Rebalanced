@@ -55,7 +55,7 @@ constexpr uint32_t kResources = 0x2D45D8;
 constexpr uint32_t kQueue = 0x1F37E0;       // eax the request, ecx the path, edx [kResources], 6 arguments
 constexpr uint32_t kFileIn = 0x1D3790;      // the callback: the pack filed in a type 0xC slot
 constexpr uint32_t kRequest = 8;            // the request the level load queues on
-constexpr uint32_t kRequestSize = 0x13C;    // +0x134 byte busy
+constexpr uint32_t kRequestSize = 0x13C;    // +0x134 byte queued, +0x135 byte loading: busy while either (sub_00013D90)
 constexpr uint32_t kRequestBusy = 0x134;
 constexpr uint32_t kSlots = 0xD14;          // kSlotCount of kSlotSize: +0 type, +4 the file, +8 key, +0xA uses
 constexpr uint32_t kSlotCount = 17;
@@ -77,6 +77,11 @@ uint32_t g_path;           // guest room for the path
 std::chrono::steady_clock::time_point g_queued_at;
 
 uint32_t Slot(uint32_t resources, uint32_t s) { return resources + kSlots + s * kSlotSize; }
+
+bool RequestBusy(uint32_t resources) {
+    uint32_t request = resources + kRequest * kRequestSize;
+    return G<uint8_t>(request + kRequestBusy) || G<uint8_t>(request + kRequestBusy + 1);
+}
 
 void Counts(uint32_t resources, uint32_t& slots, uint32_t& packs, uint32_t& packs2) {
     slots = packs = packs2 = 0;
@@ -144,12 +149,9 @@ bool StagePickupStep(X86Context& ctx) {
     }
     uint16_t key = uint16_t(G<uint8_t>(world + kWorldLevel) | G<uint8_t>(world + kWorldNewGamePlus) << 8);
     if (g_step == kQueued) {
-        if (++g_waits > kMostWaits) {
-            LOGW("borrowed pickup: the pack was not filed after %d steps, the weapon vanishes when dropped", g_waits);
-            g_step = kDone;
-            return false;
-        }
-        if (G<uint8_t>(resources + kRequest * kRequestSize + kRequestBusy)) return true;
+        ++g_waits;
+        // the loader never goes on while our load is busy: filed later, it would take the stage's own key
+        if (RequestBusy(resources)) return true;
         for (uint32_t s = 0; s < kSlotCount; s++) {
             uint32_t slot = Slot(resources, s);
             uint32_t file = R32(slot + 4);
@@ -164,11 +166,13 @@ bool StagePickupStep(X86Context& ctx) {
             g_step = kDone;
             return false;
         }
-        if (g_waits > 2) {  // the request is idle and no new slot: the callback did not file it
-            LOGW("borrowed pickup: the load finished but no slot holds the pack, the weapon vanishes when dropped");
+        if (g_waits > kMostWaits) {  // idle that long and no new slot: the callback did not file it
+            LOGR("borrowed pickup: the load finished but no slot holds the pack after %d steps, the weapon vanishes "
+                 "when dropped", g_waits);
             g_step = kDone;
+            return false;
         }
-        return g_step != kDone;
+        return true;
     }
     // kIdle: is there anything to borrow?
     g_step = kDone;
@@ -178,7 +182,7 @@ bool StagePickupStep(X86Context& ctx) {
     if (kind >= weapon_kinds::Count()) return false;
     uint32_t lo = 0, hi = 0;
     if (!PickupName(uint8_t(kind), lo, hi)) {
-        LOGW("borrowed pickup: no pickup entry for kind %u", kind);
+        LOGR("borrowed pickup: no pickup entry for kind %u", kind);
         return false;
     }
     int level = G<uint8_t>(world + kWorldLevel);
@@ -196,17 +200,17 @@ bool StagePickupStep(X86Context& ctx) {
     }
     LogCounts("at the stage's load");
     if (from < 0) {
-        LOGW("borrowed pickup: no level has kind %u's pickup model %08X%08X", kind, hi, lo);
+        LOGR("borrowed pickup: no level has kind %u's pickup model %08X%08X", kind, hi, lo);
         return false;
     }
     uint32_t slots, packs, packs2;
     Counts(resources, slots, packs, packs2);
     if (slots >= kSlotCount || packs >= kPackPlaceCount || packs2 >= kPackPlaceCount) {
-        LOGW("borrowed pickup: no room for another pack, the weapon vanishes when dropped");
+        LOGR("borrowed pickup: no room for another pack, the weapon vanishes when dropped");
         return false;
     }
-    if (G<uint8_t>(resources + kRequest * kRequestSize + kRequestBusy)) {
-        LOGW("borrowed pickup: the loading request is busy, the weapon vanishes when dropped");
+    if (RequestBusy(resources)) {
+        LOGR("borrowed pickup: the loading request is busy, the weapon vanishes when dropped");
         return false;
     }
     if (!g_path) g_path = mem::AllocSystem(0x100);
@@ -250,7 +254,7 @@ void Redirect(uint32_t text, uint16_t length, uint32_t root) {
         LOGR("borrowed weapon: %s from %s", name.c_str(), other.c_str());
         return;
     }
-    LOGW("borrowed weapon: %s is in no level's folder", name.c_str());
+    LOGR("borrowed weapon: %s is in no level's folder", name.c_str());
 }
 
 }  // namespace borrowed_weapons
