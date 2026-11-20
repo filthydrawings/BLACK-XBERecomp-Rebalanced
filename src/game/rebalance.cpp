@@ -83,15 +83,17 @@ std::array<FieldValues, kFields> g_weapons;  // by field, from the file
 // Animation speeds: an animation of the player's of a kind, by its name, plays at its weapon's speed for that kind.
 // A reload plays the reload animation, and the clip refills as the animation reaches the point it does, so the
 // animation's playback speed sets the reload's; a weapon switch plays the new weapon's draw animation
+constexpr size_t kMostSuffixes = 4;
+constexpr size_t kMostStates = 4;
 struct AnimationKind {
-    const char* key;     // its speed in each weapon's [weapons] entry
-    const char* suffix;  // the end of its animations' names
-    bool reloads;        // it starts only with the weapon in its reload state
+    const char* key;                         // its speed in each weapon's [weapons] entry
+    const char* suffixes[kMostSuffixes];     // the ends of its animations' names
+    uint32_t states[kMostStates];            // it starts only with the weapon in one of these states; none, any
     bool game::Options::*toggle;
 };
 constexpr AnimationKind kAnimationKinds[] = {
-    {"reload", "_101", true, &game::Options::reload_adjust},
-    {"draw", "_102", false, &game::Options::draw_adjust},  // the weapon coming up, after a switch
+    {"reload", {"_101"}, {kWeaponReloading}, &game::Options::reload_adjust},
+    {"draw", {"_102"}, {}, &game::Options::draw_adjust},  // the weapon coming up, after a switch
 };
 constexpr size_t kKinds = std::size(kAnimationKinds);
 std::array<FieldValues, kKinds> g_speeds;  // by kind, clamped to kLeastSpeed to kMostSpeed
@@ -289,10 +291,19 @@ Speeds AnimationSpeeds(uint32_t weapon) {
 // the kind of an animation by its name, kKinds for none
 size_t KindOf(const std::string& name) {
     for (size_t k = 0; k < kKinds; k++) {
-        size_t n = std::strlen(kAnimationKinds[k].suffix);
-        if (name.size() >= n && name.compare(name.size() - n, n, kAnimationKinds[k].suffix) == 0) return k;
+        for (const char* suffix : kAnimationKinds[k].suffixes) {
+            size_t n = suffix ? std::strlen(suffix) : 0;
+            if (n && name.size() >= n && name.compare(name.size() - n, n, suffix) == 0) return k;
+        }
     }
     return kKinds;
+}
+
+// the weapon is in a state the kind starts in
+bool StartsIn(const AnimationKind& kind, uint32_t weapon) {
+    if (!kind.states[0]) return true;
+    uint32_t state = weapon ? R32(weapon + kWeaponState) : 0;
+    return std::find(std::begin(kind.states), std::end(kind.states), state) != std::end(kind.states);
 }
 
 // the player's animation at its kind's speed times the game's while it plays, the game's speed given back once it
@@ -301,7 +312,6 @@ void ApplyAnimationSpeeds(uint32_t weapon, const Speeds& speeds) {
     uint32_t ac = R32(Player() + kCharacterAnimation);
     uint32_t clip = ac ? R32(ac + kAnimClip) : 0;
     std::string name = ac ? ReadCString(ac + kAnimName, kAnimationNameBytes) : "";
-    bool reloading = weapon && R32(weapon + kWeaponState) == kWeaponReloading;
     size_t kind = clip ? KindOf(name) : kKinds;
     if (g_sped.clip && (kind != g_sped.kind || clip != g_sped.clip || speeds[g_sped.kind] == 1.0f)) {
         LOGI("%s speed: clip %08X back to speed %g, \"%s\" playing", kAnimationKinds[g_sped.kind].key, g_sped.clip,
@@ -309,7 +319,7 @@ void ApplyAnimationSpeeds(uint32_t weapon, const Speeds& speeds) {
         G<float>(g_sped.clip + kAnimClipSpeed) = g_sped.before;
         g_sped.clip = 0;
     }
-    if (!g_sped.clip && kind < kKinds && speeds[kind] != 1.0f && (!kAnimationKinds[kind].reloads || reloading)) {
+    if (!g_sped.clip && kind < kKinds && speeds[kind] != 1.0f && StartsIn(kAnimationKinds[kind], weapon)) {
         float before = G<float>(clip + kAnimClipSpeed);
         g_sped = {clip, kind, before, (before != 0 ? before : 1.0f) * speeds[kind]};
         G<float>(clip + kAnimClipSpeed) = g_sped.set;
