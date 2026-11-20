@@ -47,7 +47,7 @@ constexpr uint32_t kAnimName = 0x5C;
 constexpr uint32_t kAnimFrom = 0x90;
 // animation clip, the controller's kAnimClip: a track that plays one animation after another
 constexpr uint32_t kAnimClipFrame = 0x14;  // float: the frame it is at, 60 a second at speed 1
-constexpr uint32_t kAnimClipSpeed = 0x9C8;  // float: its playback speed, 0 the normal one (sub_00097F00)
+constexpr uint32_t kAnimClipSpeed = 0x9C8;  // float: its playback speed, 1 (or 0) the normal one (sub_00097F00)
 
 // the player, in the world container
 inline uint32_t Player() { return kernel::R32(kWorld) + kWorldPlayer; }

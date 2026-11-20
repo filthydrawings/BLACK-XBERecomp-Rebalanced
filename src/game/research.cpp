@@ -14,6 +14,7 @@
 //   each reload, from the weapon's reload state to its magazine refilling: the frames and seconds, and each frame
 //   the player's animation and the words of its controller and clip that changed
 //   F11: reload animations at twice their speed, on or off, to see whether reloads shorten with them
+//   each change of the weapon in hand's state or the player's animation
 // Nothing in the game is changed, but F9's candidate and F11's reload speed.
 #include <algorithm>
 #include <chrono>
@@ -439,6 +440,26 @@ float g_speed_before;    // its speed before
 float g_speed_set;       // the speed written
 uint32_t g_speed_writes; // times it had to be written again, the game having changed it
 
+// each change of the weapon in hand's state or the player's animation: what a reload plays, the shotgun's shell by
+// shell too, whose reload is no kWeaponReloading
+void LogStates(FILE* f, uint32_t weapon, uint32_t frame) {
+    static uint32_t last_weapon;
+    static uint32_t last_state;
+    static std::string last_name;
+    uint32_t state = weapon ? R32(weapon + kWeaponState) : 0;
+    uint32_t ac = R32(Player() + kCharacterAnimation);
+    uint32_t clip = ac ? R32(ac + kAnimClip) : 0;
+    std::string name = ac ? ReadCString(ac + kAnimName, kNameBytes) : "";
+    if (weapon == last_weapon && state == last_state && name == last_name) return;
+    uint32_t data = weapon ? R32(weapon + kWeaponData) : 0;
+    std::fprintf(f, "frame %u: %s state %u -> %u, rounds %u, animation \"%s\" -> \"%s\", clip %08X frame %g speed %g\n",
+                 frame, RecordName(data), last_state, state, Rounds(weapon), last_name.c_str(), name.c_str(), clip,
+                 clip ? G<float>(clip + kAnimClipFrame) : 0.0f, clip ? G<float>(clip + kAnimClipSpeed) : 0.0f);
+    last_weapon = weapon;
+    last_state = state;
+    last_name = name;
+}
+
 bool IsReloadAnimation(const std::string& name) {
     return name.size() >= 4 && name.compare(name.size() - 4, 4, "_101") == 0;
 }
@@ -598,6 +619,7 @@ void Tick() {
     }
     TrackReloads(f, weapon, data, frame);
     SpeedReloads(f, weapon, frame);
+    LogStates(f, weapon, frame);
 
     static Snapshot snapshots[] = {{"player"}, {"weapon"}, {"weapon data"}};
     if (Pressed(kDiffKey)) {
