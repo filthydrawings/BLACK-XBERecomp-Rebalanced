@@ -83,7 +83,7 @@ spas12   = { clip = 6,   ammo = 1, range = 45,   recoil = 9,    reload = 1.0 }
 sniper   = { clip = 5,   ammo = 6, range = 1000, recoil = 1,    reload = 1.0 }
 uzi      = { clip = 30,  ammo = 2, range = 85,   recoil = 5.3,  reload = 1.0 }
 g36c     = { clip = 30,  ammo = 3, range = 105,   recoil = 5.1,  reload = 1.0 }
-ak47     = { clip = 30,  ammo = 3, range = 100,   recoil = 5.5,  reload = 1.0 }
+ak47     = { clip = 30,  ammo = 3, range = 100,   recoil = 5.5,  reload = 1.5 }
 rpg      = { clip = 1,   ammo = 4, range = 1000, recoil = 9,    reload = 1.0 }
 launcher = { clip = 1,   ammo = 5, range = 1000, recoil = 9,    reload = 1.0 }
 mac10    = { clip = 30,  ammo = 2, range = 75,   recoil = 5.0,  reload = 1.0 }
