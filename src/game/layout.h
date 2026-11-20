@@ -38,6 +38,13 @@ constexpr uint32_t kWorldPlayer = 0x30;
 
 // player
 constexpr uint32_t kPlayerWeapon = 0x29C;  // the weapon in hand
+constexpr uint32_t kCharacterAnimation = 0x328;  // its animation controller
+
+// animation controller
+constexpr uint32_t kAnimOwner = 0;
+constexpr uint32_t kAnimClip = 0x54;
+constexpr uint32_t kAnimName = 0x5C;
+constexpr uint32_t kAnimFrom = 0x90;
 
 // the player, in the world container
 inline uint32_t Player() { return kernel::R32(kWorld) + kWorldPlayer; }
@@ -58,8 +65,15 @@ constexpr uint32_t kDrawListCap = 0xC;
 constexpr uint32_t kStageX = 0x295DA4;  // float: the 640 Flash stage sits this far in on a widescreen
 
 // weapon and its data
+constexpr uint32_t kWeaponState = 0xD8;  // its state machine, sub_001EEFD0: 1 firing, kWeaponReloading
+constexpr uint32_t kWeaponReloading = 4;  // the state a reload starts in
+constexpr uint32_t kWeaponWait = 0xDC;   // float: the countdown to its next shot, from the fire interval
 constexpr uint32_t kWeaponData = 0xEC;
 constexpr uint32_t kWeaponOwner = 0xF0;  // the character holding it
+constexpr uint32_t kWeaponMagazine = 0xF4;
+constexpr uint32_t kWeaponSpareAmmo = 0xFC;  // uint16 a weapon data ammo type (+0x64): the rounds left to load
+// magazine
+constexpr uint32_t kMagazineRounds = 0x18;  // uint16: the rounds in the clip
 constexpr uint32_t kDataAimZoom = 0xB4;  // float: 1 for a weapon that does not aim
 
 // character type: characters of a type share its record, the types sit in one array by id

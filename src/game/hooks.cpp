@@ -331,10 +331,6 @@ static float WholeFrames(float wait, float rest) {
 
 static bool g_idle_early;
 
-// weapon
-constexpr uint32_t kWeaponState = 0xD8;
-constexpr uint32_t kWeaponWait = 0xDC;
-
 // the wait between a weapon's shots. The frame of a first shot is part of it: the fire clip runs that frame too
 // and holds its next shot where the wait ends
 X86_EXTERN_FUNC(__imp__sub_001EEFD0);
@@ -353,11 +349,6 @@ X86_FUNC(sub_001EEFD0) {
     wait = WholeFrames(wait, rest <= 0 && rest > -dt ? rest : -dt);
 }
 
-// animation controller
-constexpr uint32_t kAnimOwner = 0;
-constexpr uint32_t kAnimClip = 0x54;
-constexpr uint32_t kAnimName = 0x5C;
-constexpr uint32_t kAnimFrom = 0x90;
 // animation clip
 constexpr uint32_t kAnimClipHash = 0x18;
 constexpr uint32_t kAnimClipFades = 0x88;
