@@ -12,6 +12,7 @@
 #include "common/options.h"
 #include "game/flash.h"
 #include "game/layout.h"
+#include "game/research.h"
 #include "xdk/hle.h"
 #include "xdk/layout.h"
 
@@ -140,6 +141,7 @@ void DrawOverlay(X86Context& ctx, uint8_t*) {
         std::snprintf(text, sizeof text, "FPS: %.1f", double(game::g_fps.load()));
         lines.push_back(text);
     }
+    research::OverlayLines(lines);
     const TitlePage* title = CurrentTitlePage();
     std::optional<float> slide = title ? LegendSlide(*title) : std::nullopt;
     bool watermark = slide.has_value();

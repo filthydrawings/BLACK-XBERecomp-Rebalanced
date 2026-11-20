@@ -13,6 +13,7 @@ constexpr uint32_t kGameFrameTime = 0x2F3A38;
 constexpr uint32_t kGame = 0x2D45F0;
 constexpr uint32_t kGameState = 0x21070;
 constexpr uint32_t kGameClockStep = 0x2013C;  // float: its clock's step
+constexpr uint32_t kGameDifficulty = 0x2014C;  // 0 to 3
 constexpr uint32_t kFrontEnd = 0x20220;
 constexpr uint32_t kFilmPlayer = 0x4C;      // in the front end
 constexpr uint32_t kCurrentFilm = 0x2042C;  // the front end's +0x20C
