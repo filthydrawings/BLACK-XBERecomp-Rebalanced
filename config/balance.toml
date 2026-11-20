@@ -31,38 +31,38 @@
 
 [normal]
 #               dc3 spas snip  uzi g36c ak47 mac10 p90 m249 magn  m16 r870 glck  mp5
-type_37      = [  3,   3,   1,   5,   9,   9,   5,   7,   6,   1,   9,   3,   3,   5]
-type_37_back = [  2,   3,   1,   5,   9,   9,   5,   7,   6,   1,   9,   3,   2,   5]
-type_39      = [  2,   3,   1,   5,   9,   9,   5,   5,   6,   1,   9,   3,   2,   7]
-type_41      = [  3,   5,   1,  14,  14,  14,  14,  14,  10,   1,  14,   7,   2,  14]
-type_41_back = [  2,   5,   1,  14,  14,  14,  14,  14,  10,   1,  14,   7,   2,  14]
-type_42      = [  5,  10,   1,  20,  20,  20,  20,  20,  15,   2,  20,  13,   5,  20]
-type_38      = [  8,  11,   1,  30,  30,  30,  30,  30,  16,   2,  30,  13,   7,  30]
-type_40      = [ 16,  22,   1,  60,  60,  60,  60,  60,  32,   3,  60,  26,  14,  60]
+type_37      = [  3,   3,   1,   5,   4,   4,   5,   6,   4,   1,   4,   3,   3,   5]
+type_37_back = [  2,   3,   1,   5,   4,   4,   5,   6,   4,   1,   4,   3,   2,   5]
+type_39      = [  2,   3,   1,   5,   4,   4,   5,   5,   4,   1,   4,   3,   2,   5]
+type_41      = [  3,   5,   1,   7,   5,   5,   7,   8,   5,   1,   5,   7,   2,   7]
+type_41_back = [  2,   5,   1,   4,   4,   4,   4,   5,   4,   1,   4,   7,   2,   4]
+type_42      = [  4,   8,   1,   7,   5,   5,   7,   8,   5,   1,   5,   8,   4,   7]
+type_38      = [  6,   9,   1,  14,  10,  10,  14,  16,   7,   1,  10,   9,   6,  14]
+type_40      = [  6,   9,   1,  10,   8,   8,  10,  12,  32,   1,   8,   9,   6,  10]
 type_40_back = [  1,   1,   1,   1,   2,   2,   1,   2,   1,   1,   1,   1,   1,   1]
 
 [hard]
 #               dc3 spas snip  uzi g36c ak47 mac10 p90 m249 magn  m16 r870 glck  mp5
-type_37      = [  3,   3,   1,   5,   9,   9,   5,   7,   6,   1,   9,   3,   3,   5]
-type_37_back = [  2,   3,   1,   5,   9,   9,   5,   7,   6,   1,   9,   3,   2,   5]
-type_39      = [  2,   3,   1,   5,   9,   9,   5,   5,   6,   1,   9,   3,   2,   7]
-type_41      = [  3,   5,   1,  14,  14,  14,  14,  14,  10,   1,  14,   7,   2,  14]
-type_41_back = [  2,   5,   1,  14,  14,  14,  14,  14,  10,   1,  14,   7,   2,  14]
-type_42      = [  5,  10,   1,  20,  20,  20,  20,  20,  15,   2,  20,  13,   5,  20]
-type_38      = [  8,  11,   1,  30,  30,  30,  30,  30,  16,   2,  30,  13,   7,  30]
-type_40      = [ 16,  22,   1,  60,  60,  60,  60,  60,  32,   3,  60,  26,  14,  60]
+type_37      = [  3,   3,   1,   5,   4,   4,   5,   6,   4,   1,   4,   3,   3,   5]
+type_37_back = [  2,   3,   1,   5,   4,   4,   5,   6,   4,   1,   4,   3,   2,   5]
+type_39      = [  2,   3,   1,   5,   4,   4,   5,   5,   4,   1,   4,   3,   2,   5]
+type_41      = [  3,   5,   1,   7,   5,   5,   7,   8,   5,   1,   5,   7,   2,   7]
+type_41_back = [  2,   5,   1,   4,   4,   4,   4,   5,   4,   1,   4,   7,   2,   4]
+type_42      = [  4,   8,   1,   7,   5,   5,   7,   8,   5,   1,   5,   8,   4,   7]
+type_38      = [  6,   9,   1,  14,  10,  10,  14,  16,   7,   1,  10,   9,   6,  14]
+type_40      = [  6,   9,   1,  10,   8,   8,  10,  12,  32,   1,   8,   9,   6,  10]
 type_40_back = [  1,   1,   1,   1,   2,   2,   1,   2,   1,   1,   1,   1,   1,   1]
 
 [black_ops]
 #               dc3 spas snip  uzi g36c ak47 mac10 p90 m249 magn  m16 r870 glck  mp5
-type_37      = [  3,   3,   1,   5,   9,   9,   5,   7,   6,   1,   9,   3,   3,   5]
-type_37_back = [  2,   3,   1,   5,   9,   9,   5,   7,   6,   1,   9,   3,   2,   5]
-type_39      = [  2,   3,   1,   5,   9,   9,   5,   5,   6,   1,   9,   3,   2,   7]
-type_41      = [  3,   5,   1,  14,  14,  14,  14,  14,  10,   1,  14,   7,   2,  14]
-type_41_back = [  2,   5,   1,  14,  14,  14,  14,  14,  10,   1,  14,   7,   2,  14]
-type_42      = [  5,  10,   1,  20,  20,  20,  20,  20,  15,   2,  20,  13,   5,  20]
-type_38      = [  8,  11,   1,  30,  30,  30,  30,  30,  16,   2,  30,  13,   7,  30]
-type_40      = [ 16,  22,   1,  60,  60,  60,  60,  60,  32,   3,  60,  26,  14,  60]
+type_37      = [  3,   3,   1,   5,   4,   4,   5,   6,   4,   1,   4,   3,   3,   5]
+type_37_back = [  2,   3,   1,   5,   4,   4,   5,   6,   4,   1,   4,   3,   2,   5]
+type_39      = [  2,   3,   1,   5,   4,   4,   5,   5,   4,   1,   4,   3,   2,   5]
+type_41      = [  3,   5,   1,   7,   5,   5,   7,   8,   5,   1,   5,   7,   2,   7]
+type_41_back = [  2,   5,   1,   4,   4,   4,   4,   5,   4,   1,   4,   7,   2,   4]
+type_42      = [  4,   8,   1,   7,   5,   5,   7,   8,   5,   1,   5,   8,   4,   7]
+type_38      = [  6,   9,   1,  14,  10,  10,  14,  16,   7,   1,  10,   9,   6,  14]
+type_40      = [  6,   9,   1,  10,   8,   8,  10,  12,  32,   1,   8,   9,   6,  10]
 type_40_back = [  1,   1,   1,   1,   2,   2,   1,   2,   1,   1,   1,   1,   1,   1]
 
 # WEAPON STATS, from the game's weapon records (assets\GlobData.bin)
@@ -78,19 +78,19 @@ type_40_back = [  1,   1,   1,   1,   2,   2,   1,   2,   1,   1,   1,   1,   1,
 #   spread: no record field found that changes it (all 22 candidates tried), so not editable
 # weapon  =   clip  ammo  range  recoil  reload
 [weapons]
-dc3elite = { clip = 15,  ammo = 0, range = 60,   recoil = 5,    reload = 1.0 }
-spas12   = { clip = 6,   ammo = 1, range = 25,   recoil = 9,    reload = 1.0 }
+dc3elite = { clip = 15,  ammo = 0, range = 80,   recoil = 5,    reload = 1.0 }
+spas12   = { clip = 6,   ammo = 1, range = 45,   recoil = 9,    reload = 1.0 }
 sniper   = { clip = 5,   ammo = 6, range = 1000, recoil = 1,    reload = 1.0 }
-uzi      = { clip = 90,  ammo = 2, range = 30,   recoil = 5.5,  reload = 1.0 }
-g36c     = { clip = 70,  ammo = 3, range = 60,   recoil = 5.1,  reload = 1.0 }
-ak47     = { clip = 60,  ammo = 3, range = 60,   recoil = 5.2,  reload = 1.0 }
+uzi      = { clip = 30,  ammo = 2, range = 85,   recoil = 5.3,  reload = 1.0 }
+g36c     = { clip = 30,  ammo = 3, range = 105,   recoil = 5.1,  reload = 1.0 }
+ak47     = { clip = 30,  ammo = 3, range = 100,   recoil = 5.5,  reload = 1.0 }
 rpg      = { clip = 1,   ammo = 4, range = 1000, recoil = 9,    reload = 1.0 }
 launcher = { clip = 1,   ammo = 5, range = 1000, recoil = 9,    reload = 1.0 }
-mac10    = { clip = 70,  ammo = 2, range = 30,   recoil = 5.5,  reload = 1.0 }
-p90      = { clip = 100, ammo = 3, range = 30,   recoil = 5.5,  reload = 1.0 }
+mac10    = { clip = 30,  ammo = 2, range = 75,   recoil = 5.0,  reload = 1.0 }
+p90      = { clip = 50,  ammo = 3, range = 75,   recoil = 5.4,  reload = 1.0 }
 m249     = { clip = 150, ammo = 8, range = 100,  recoil = 12,   reload = 1.0 }
 magnum   = { clip = 6,   ammo = 9, range = 70,   recoil = 10,   reload = 1.0 }
-m16      = { clip = 95,  ammo = 3, range = 60,   recoil = 5.1,  reload = 1.0 }
-rem870   = { clip = 8,   ammo = 1, range = 25,   recoil = 9,    reload = 1.0 }
-glock    = { clip = 12,  ammo = 0, range = 60,   recoil = 5,    reload = 1.0 }
-mp5      = { clip = 80,  ammo = 2, range = 1000, recoil = 5.5,  reload = 1.0 }
+m16      = { clip = 30,  ammo = 3, range = 120,   recoil = 5.0,  reload = 1.0 }
+rem870   = { clip = 8,   ammo = 1, range = 45,   recoil = 9,    reload = 1.0 }
+glock    = { clip = 17,  ammo = 0, range = 80,   recoil = 5,    reload = 1.0 }
+mp5      = { clip = 30,  ammo = 2, range = 85, recoil = 5.5,  reload = 1.0 }
