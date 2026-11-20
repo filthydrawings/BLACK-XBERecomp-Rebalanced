@@ -82,6 +82,7 @@ constexpr size_t kFields = std::size(kWeaponFields);
 enum { kClipField, kRangeField, kFireGapField };
 using FieldValues = std::array<std::optional<double>, kWeaponRecords>;
 std::array<FieldValues, kFields> g_weapons;  // by field, from the file
+FieldValues g_reload;  // reload speed multipliers, read but not applied: the reload timer is not found yet
 bool g_loaded;
 
 fs::path FilePath() {
@@ -118,6 +119,7 @@ std::optional<std::array<float, kRowSize>> ReadRow(const toml::node* node) {
 void Load() {
     g_settings.clear();
     g_weapons = {};
+    g_reload = {};
     fs::path path = FilePath();
     if (!fs::exists(path)) {
         LOGI("balance.toml: none beside the exe, the game's own values");
@@ -137,6 +139,7 @@ void Load() {
             if (w < 0 || !weapon) continue;
             for (size_t f = 0; f < kFields; f++)
                 if (auto v = (*weapon)[kWeaponFields[f].key].value<double>()) g_weapons[f][w] = *v;
+            if (auto v = (*weapon)["reload"].value<double>()) g_reload[w] = *v;
         }
     }
     for (uint32_t d = 0; d < kDifficulties; d++) {
