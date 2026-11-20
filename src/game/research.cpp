@@ -13,7 +13,8 @@
 //   restored first, all restored when the weapon in hand changes); the candidates are logged once
 //   each reload, from the weapon's reload state to its magazine refilling: the frames and seconds, and each frame
 //   the player's animation and the words of its controller and clip that changed
-// Nothing in the game is changed, but F9's candidate.
+//   F11: reload animations at twice their speed, on or off, to see whether reloads shorten with them
+// Nothing in the game is changed, but F9's candidate and F11's reload speed.
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -339,6 +340,8 @@ void ExaggerateNext(FILE* f, uint32_t data, uint32_t frame) {
                  CandidateValue(c, g_original), CandidateValue(c, R32(at)));
 }
 
+bool g_reload_speed_on;  // F11, below
+
 // Reloads: from the weapon in hand going to kWeaponReloading to its magazine's rounds rising, each frame the player's
 // animation: its name, its clip, and the words of the controller and the clip that changed since the frame before,
 // to find what plays the reload and how fast. The clip's words are written whole as it starts and when it changes.
@@ -414,8 +417,9 @@ void TrackReloads(FILE* f, uint32_t weapon, uint32_t data, uint32_t frame) {
         }
         if (rounds > r.rounds) {
             double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - r.time).count();
-            std::fprintf(f, "=== reload done: %s, %u frames, %.2f s, rounds %u -> %u, spare %u, state %u\n",
-                         RecordName(r.data), frames, seconds, r.rounds, rounds, Spare(weapon, data), state);
+            std::fprintf(f, "=== reload done: %s, %u frames, %.2f s, rounds %u -> %u, spare %u, state %u, reload x2 %s\n",
+                         RecordName(r.data), frames, seconds, r.rounds, rounds, Spare(weapon, data), state,
+                         g_reload_speed_on ? "on" : "off");
             r.on = false;
         } else if (frames > kMostReloadFrames) {
             std::fprintf(f, "reload: no refill after %u frames, left\n", frames);
@@ -424,6 +428,47 @@ void TrackReloads(FILE* f, uint32_t weapon, uint32_t data, uint32_t frame) {
     }
     last_state = state;
 }
+
+// F11: the player's reload animations at kReloadSpeed, to see whether a reload shortens with its animation. From the
+// weapon going to its reload state while a reload animation ("_101") plays, the clip's playback speed is set each
+// frame, and given back once that animation ends or the key turns it off
+constexpr int kReloadSpeedKey = VK_F11;
+constexpr float kReloadSpeed = 2.0f;
+uint32_t g_sped_clip;    // the clip sped up, 0 none
+float g_speed_before;    // its speed before
+float g_speed_set;       // the speed written
+uint32_t g_speed_writes; // times it had to be written again, the game having changed it
+
+bool IsReloadAnimation(const std::string& name) {
+    return name.size() >= 4 && name.compare(name.size() - 4, 4, "_101") == 0;
+}
+
+void SpeedReloads(FILE* f, uint32_t weapon, uint32_t frame) {
+    uint32_t ac = R32(Player() + kCharacterAnimation);
+    uint32_t clip = ac ? R32(ac + kAnimClip) : 0;
+    std::string name = ac ? ReadCString(ac + kAnimName, kNameBytes) : "";
+    bool reloading = weapon && R32(weapon + kWeaponState) == kWeaponReloading;
+    bool playing = clip && IsReloadAnimation(name);
+    if (g_sped_clip && (!g_reload_speed_on || !playing || clip != g_sped_clip)) {
+        std::fprintf(f, "reload speed: frame %u, clip %08X back to speed %g (\"%s\" playing), written %u times again\n",
+                     frame, g_sped_clip, g_speed_before, name.c_str(), g_speed_writes);
+        G<float>(g_sped_clip + kAnimClipSpeed) = g_speed_before;
+        g_sped_clip = 0;
+    }
+    if (!g_sped_clip && g_reload_speed_on && playing && reloading) {
+        g_sped_clip = clip;
+        g_speed_before = G<float>(clip + kAnimClipSpeed);
+        g_speed_set = g_speed_before != 0 ? g_speed_before * kReloadSpeed : kReloadSpeed;
+        g_speed_writes = 0;
+        G<float>(clip + kAnimClipSpeed) = g_speed_set;
+        std::fprintf(f, "reload speed: frame %u, clip %08X \"%s\" at frame %g, speed %g -> %g\n", frame, clip,
+                     name.c_str(), G<float>(clip + kAnimClipFrame), g_speed_before, g_speed_set);
+    } else if (g_sped_clip && G<float>(clip + kAnimClipSpeed) != g_speed_set) {
+        G<float>(clip + kAnimClipSpeed) = g_speed_set;
+        g_speed_writes++;
+    }
+}
+
 }  // namespace
 
 // the damage functions' health stores, each before its write: the character's register and the new health's.
@@ -486,6 +531,7 @@ void OverlayLines(std::vector<std::string>& lines) {
     if (Log()) lines.push_back("WEAPON LOGGING: ON");
     if (g_note && std::chrono::steady_clock::now() < g_note_until) lines.push_back(g_note);
     if (Log()) lines.push_back(g_exaggerate_line);
+    if (Log()) lines.push_back(g_reload_speed_on ? "RELOAD x2: ON" : "RELOAD x2: OFF");
     if (uint32_t weapon = R32(kWorld) ? R32(Player() + kPlayerWeapon) : 0) {
         uint32_t data = R32(weapon + kWeaponData);
         char clip[64];
@@ -545,7 +591,13 @@ void Tick() {
         std::snprintf(note, sizeof note, "F9: %s", g_exaggerate_line.c_str());
         Note(note);
     }
+    if (Pressed(kReloadSpeedKey)) {
+        g_reload_speed_on = !g_reload_speed_on;
+        Note(g_reload_speed_on ? "F11: RELOAD x2 ON" : "F11: RELOAD x2 OFF");
+        std::fprintf(f, "\n=== frame %u: F11, reload x%g %s\n", frame, kReloadSpeed, g_reload_speed_on ? "on" : "off");
+    }
     TrackReloads(f, weapon, data, frame);
+    SpeedReloads(f, weapon, frame);
 
     static Snapshot snapshots[] = {{"player"}, {"weapon"}, {"weapon data"}};
     if (Pressed(kDiffKey)) {
