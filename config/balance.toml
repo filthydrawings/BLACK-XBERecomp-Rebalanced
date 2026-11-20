@@ -1,0 +1,84 @@
+# Balance sheet: edit the numbers here. NOT READ BY THE GAME YET: wiring it in is the next step.
+#
+# HITS TO KILL
+# One row per enemy type, one number per weapon: how many body hits that weapon needs to kill that enemy.
+# The game stores each as a share of health per hit, 1.02 / hits. Headshot kills are a separate rule.
+# 0 means the weapon does no damage to that enemy.
+# Each row lists the weapons in this order:
+#   dc3elite, spas12, sniper, uzi, g36c, ak47, mac10, p90, m249, magnum, m16, rem870, glock, mp5
+# (the RPG and grenade launcher are left out: explosions use other code)
+#
+# "_back" rows: hits from behind, where they differ from the front. Without one, the front row counts for both.
+#
+# Enemy types, from the logs:
+#   type_37  standard soldier
+#   type_39  standard variant
+#   type_41  armoured
+#   type_42  heavier armour
+#   type_38  the tough one (headshot kills only from behind)
+#   type_40  shield: almost immune from the front, 1 or 2 hits from behind
+#   type_43  takes no damage (hostage or scripted), left out
+#
+# Easy (difficulty 0) uses the Normal table.
+# All three tables start as the game's own values: today every difficulty uses the same ones.
+
+[normal]
+#               dc3 spas snip  uzi g36c ak47 mac10 p90 m249 magn  m16 r870 glck  mp5
+type_37      = [  3,   3,   1,   5,   9,   9,   5,   7,   6,   1,   9,   3,   3,   5]
+type_37_back = [  2,   3,   1,   5,   9,   9,   5,   7,   6,   1,   9,   3,   2,   5]
+type_39      = [  2,   3,   1,   5,   9,   9,   5,   5,   6,   1,   9,   3,   2,   7]
+type_41      = [  3,   5,   1,  14,  14,  14,  14,  14,  10,   1,  14,   7,   2,  14]
+type_41_back = [  2,   5,   1,  14,  14,  14,  14,  14,  10,   1,  14,   7,   2,  14]
+type_42      = [  5,  10,   1,  20,  20,  20,  20,  20,  15,   2,  20,  13,   5,  20]
+type_38      = [  8,  11,   1,  30,  30,  30,  30,  30,  16,   2,  30,  13,   7,  30]
+type_40      = [ 16,  22,   1,  60,  60,  60,  60,  60,  32,   3,  60,  26,  14,  60]
+type_40_back = [  1,   1,   1,   1,   2,   2,   1,   2,   1,   1,   1,   1,   1,   1]
+
+[hard]
+#               dc3 spas snip  uzi g36c ak47 mac10 p90 m249 magn  m16 r870 glck  mp5
+type_37      = [  3,   3,   1,   5,   9,   9,   5,   7,   6,   1,   9,   3,   3,   5]
+type_37_back = [  2,   3,   1,   5,   9,   9,   5,   7,   6,   1,   9,   3,   2,   5]
+type_39      = [  2,   3,   1,   5,   9,   9,   5,   5,   6,   1,   9,   3,   2,   7]
+type_41      = [  3,   5,   1,  14,  14,  14,  14,  14,  10,   1,  14,   7,   2,  14]
+type_41_back = [  2,   5,   1,  14,  14,  14,  14,  14,  10,   1,  14,   7,   2,  14]
+type_42      = [  5,  10,   1,  20,  20,  20,  20,  20,  15,   2,  20,  13,   5,  20]
+type_38      = [  8,  11,   1,  30,  30,  30,  30,  30,  16,   2,  30,  13,   7,  30]
+type_40      = [ 16,  22,   1,  60,  60,  60,  60,  60,  32,   3,  60,  26,  14,  60]
+type_40_back = [  1,   1,   1,   1,   2,   2,   1,   2,   1,   1,   1,   1,   1,   1]
+
+[black_ops]
+#               dc3 spas snip  uzi g36c ak47 mac10 p90 m249 magn  m16 r870 glck  mp5
+type_37      = [  3,   3,   1,   5,   9,   9,   5,   7,   6,   1,   9,   3,   3,   5]
+type_37_back = [  2,   3,   1,   5,   9,   9,   5,   7,   6,   1,   9,   3,   2,   5]
+type_39      = [  2,   3,   1,   5,   9,   9,   5,   5,   6,   1,   9,   3,   2,   7]
+type_41      = [  3,   5,   1,  14,  14,  14,  14,  14,  10,   1,  14,   7,   2,  14]
+type_41_back = [  2,   5,   1,  14,  14,  14,  14,  14,  10,   1,  14,   7,   2,  14]
+type_42      = [  5,  10,   1,  20,  20,  20,  20,  20,  15,   2,  20,  13,   5,  20]
+type_38      = [  8,  11,   1,  30,  30,  30,  30,  30,  16,   2,  30,  13,   7,  30]
+type_40      = [ 16,  22,   1,  60,  60,  60,  60,  60,  32,   3,  60,  26,  14,  60]
+type_40_back = [  1,   1,   1,   1,   2,   2,   1,   2,   1,   1,   1,   1,   1,   1]
+
+# WEAPON STATS, from the game's weapon records (assets\GlobData.bin)
+#   clip      confirmed by your tests
+#   ammo      which guns share an ammo pool (shown for reference, change with care)
+#   range     LIKELY (record +0x14): 25 shotguns, 30 Uzi/MAC10/P90, 60 most guns, 1000 long range. Untested
+#   fire_gap  LIKELY (record +0x20): seconds between shots. Untested
+#   spread and recoil: candidate fields found, not confirmed yet, so not listed here
+# weapon  =   clip  ammo  range  fire_gap
+[weapons]
+dc3elite = { clip = 15,  ammo = 0, range = 60,   fire_gap = 0.3 }
+spas12   = { clip = 6,   ammo = 1, range = 25,   fire_gap = 1.315 }
+sniper   = { clip = 5,   ammo = 6, range = 1000, fire_gap = 1.999 }
+uzi      = { clip = 90,  ammo = 2, range = 30,   fire_gap = 0.04 }
+g36c     = { clip = 70,  ammo = 3, range = 60,   fire_gap = 0.068 }
+ak47     = { clip = 60,  ammo = 3, range = 60,   fire_gap = 0.071 }
+rpg      = { clip = 1,   ammo = 4, range = 1000, fire_gap = 3.599 }
+launcher = { clip = 1,   ammo = 5, range = 1000, fire_gap = 3.399 }
+mac10    = { clip = 70,  ammo = 2, range = 30,   fire_gap = 0.057 }
+p90      = { clip = 100, ammo = 3, range = 30,   fire_gap = 0.04 }
+m249     = { clip = 150, ammo = 8, range = 100,  fire_gap = 0.1 }
+magnum   = { clip = 6,   ammo = 9, range = 70,   fire_gap = 1.8 }
+m16      = { clip = 95,  ammo = 3, range = 60,   fire_gap = 0.068 }
+rem870   = { clip = 8,   ammo = 1, range = 25,   fire_gap = 1.67 }
+glock    = { clip = 12,  ammo = 0, range = 60,   fire_gap = 0.3 }
+mp5      = { clip = 80,  ammo = 2, range = 1000, fire_gap = 0.05 }
