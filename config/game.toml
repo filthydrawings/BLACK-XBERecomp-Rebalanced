@@ -580,6 +580,67 @@ on_false = 0x213A0
 at = 0x1DF229
 call = "CharacterHealthStart"
 
+# src/game/research.cpp, the damage functions' health stores (temporary)
+[[hook]]
+at = 0x1DFA0F
+call = "Hit1DFA0F"
+
+[[hook]]
+at = 0x1DFB65
+call = "Hit1DFB65"
+
+[[hook]]
+at = 0x1ED293
+call = "Hit1ED293"
+
+[[hook]]
+at = 0x1ED5B2
+call = "Hit1ED5B2"
+
+[[hook]]
+at = 0x1ED92E
+call = "Hit1ED92E"
+
+[[hook]]
+at = 0x1EDAF0
+call = "Hit1EDAF0"
+
+[[hook]]
+at = 0x1E7A68
+call = "Hit1E7A68"
+
+[[hook]]
+at = 0x1DF97D
+call = "Hit1DF97D"
+
+[[hook]]
+at = 0x1DFB7D
+call = "Hit1DFB7D"
+
+[[hook]]
+at = 0x1ED27C
+call = "Hit1ED27C"
+
+[[hook]]
+at = 0x1ED59A
+call = "Hit1ED59A"
+
+[[hook]]
+at = 0x1ED91D
+call = "Hit1ED91D"
+
+[[hook]]
+at = 0x1EDA94
+call = "Hit1EDA94"
+
+[[hook]]
+at = 0x1E795B
+call = "Hit1E795B"
+
+[[hook]]
+at = 0x1ED7CB
+call = "Hit1ED7CB"
+
 # src/game/ambient_occlusion.cpp
 [[hook]]
 at = 0x1EE9A5
