@@ -54,3 +54,9 @@ set_source_files_properties(src/common/version.rc PROPERTIES
 target_sources(Black PRIVATE src/common/version.rc)
 add_dependencies(Black build_info)
 set_target_properties(Black PROPERTIES OUTPUT_NAME BLACK)
+# balance.toml beside the executable, read by src/game/rebalance.cpp: copied only when none is there, so edits made
+# to that copy are never overwritten
+add_custom_command(TARGET Black POST_BUILD
+    COMMAND ${CMAKE_COMMAND} "-DSRC=${CMAKE_SOURCE_DIR}/config/balance.toml" "-DDST=$<TARGET_FILE_DIR:Black>/balance.toml"
+            -P "${CMAKE_SOURCE_DIR}/tools/copy_if_missing.cmake"
+    VERBATIM)

@@ -575,6 +575,95 @@ at = 0x2139D
 call = "HudItem"
 on_false = 0x213A0
 
+# src/game/game_files.cpp, each call of NtCreateFile: a borrowed weapon's file before it
+[[hook]]
+at = 0x2337A
+call = "FileOpening"
+
+[[hook]]
+at = 0x2379B
+call = "FileOpening"
+
+[[hook]]
+at = 0x23D87
+call = "FileOpening"
+
+[[hook]]
+at = 0x24131
+call = "FileOpening"
+
+[[hook]]
+at = 0x25C46
+call = "FileOpening"
+
+[[hook]]
+at = 0x25D09
+call = "FileOpening"
+
+[[hook]]
+at = 0x25DC6
+call = "FileOpening"
+
+[[hook]]
+at = 0x25EAF
+call = "FileOpening"
+
+[[hook]]
+at = 0x26D76
+call = "FileOpening"
+
+[[hook]]
+at = 0x278040
+call = "FileOpening"
+
+[[hook]]
+at = 0x2781FB
+call = "FileOpening"
+
+# src/game/new_game_plus.cpp, the level load's New Game+ flags
+[[hook]]
+at = 0x1EE1FF
+call = "NewGamePlusFlags"
+
+# src/game/new_game_plus.cpp, the reads of the New Game+ flag for ammo
+[[hook]]
+at = 0x1EFC0F
+call = "InfiniteAmmoCl"
+after = true
+
+[[hook]]
+at = 0x1EFCDF
+call = "InfiniteAmmoAl"
+after = true
+
+[[hook]]
+at = 0x12CEEA
+call = "InfiniteAmmoDl"
+after = true
+
+[[hook]]
+at = 0x13A947
+call = "InfiniteAmmoAl"
+after = true
+
+# src/game/new_game_plus.cpp, the player's starting weapon
+[[hook]]
+at = 0x1DEE95
+call = "StartWeaponSpawn"
+
+[[hook]]
+at = 0x1DED51
+call = "StartWeaponRespawn"
+
+[[hook]]
+at = 0x1DF077
+call = "StartWeaponAmmo"
+
+# src/game/rebalance.cpp, a hit's entry in its type's hits table, from balance.toml
+[[hook]]
+at = 0x1E77F4
+call = "RebalanceHit"
+
 # src/game/ambient_occlusion.cpp
 [[hook]]
 at = 0x1EE9A5

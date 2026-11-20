@@ -67,6 +67,10 @@ constexpr uint32_t kMsaaValues[] = {0, 2, 4, 8};
 const char* const kMsaaNames[] = {"OFF", "2x", "4x", "8x"};
 constexpr uint32_t kAoValues[] = {0, 1, 2};
 const char* const kAoNames[] = {"OFF", "SSAO", "GTAO"};
+// "GAME DEFAULT" then the weapon records in order, as src/game/layout.h has them
+const char* const kStartWeaponNames[] = {"GAME DEFAULT", "DC3 ELITE", "SPAS-12", "SNIPER RIFLE", "UZI", "G36C",
+                                         "AK-47", "RPG", "GRENADE LAUNCHER", "MAC-10", "P90", "M249", "MAGNUM",
+                                         "M16", "REMINGTON 870", "GLOCK", "MP5"};
 constexpr uint32_t kFmvScales[] = {0, 1};
 const char* const kFmvScaleNames[] = {"FILL", "4:3"};
 constexpr uint32_t kColourBlindModes[] = {0, 1, 2, 3};
@@ -189,12 +193,13 @@ void FillItem() {
 }
 
 // label left, arrows and value right, the row is the only nav stop
-int OptionRow(const char* label, const char* value) {
+int OptionRow(const char* label, const char* value, bool* pointed = nullptr) {
     const ImGuiStyle& style = ImGui::GetStyle();
     RowBox box = MeasureRow();
     ImGui::PushID(label);
     int step = 0;
     ImGui::Selectable("##row", false, ImGuiSelectableFlags_AllowOverlap, ImVec2(box.row_w, box.row_h));
+    if (pointed) *pointed = ImGui::IsItemFocused() || ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled);
     if (ImGui::IsItemFocused()) {
         FillItem();
         if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow) || ImGui::IsKeyPressed(ImGuiKey_GamepadDpadLeft)) step = -1;
@@ -239,7 +244,9 @@ enum RowId { kDisplayMode, kResolution, kRenderResolution, kMaxFps, kVsync, kFps
              kGyroAiming, kGyroSensitivity, kAimAssist, kGyroAxis, kGyroButton, kGyroButtonMode, kGyroRecenter,
              kGyroCalibrate, kColourBlind, kSensitivityVertical, kAimHorizontal, kAimVertical, kInvertMouseX,
              kControllerVertical, kPadAimHorizontal, kPadAimVertical, kInvertPadX, kTextureReplacement,
-             kTextureDumping, kDumpFormat, kDeadZone };
+             kTextureDumping, kDumpFormat, kDeadZone, kEnemyRebalance, kPerDifficultyRebalance, kRealisticClips,
+             kRangeAdjust, kRecoilAdjust, kReloadAdjust, kDrawAdjust,
+             kNgpSilver, kNgpAmmo, kNgpStartWeapon };
 
 using rows::Kind;
 using rows::Row;
@@ -275,7 +282,44 @@ constexpr Row kSettingsRows[] = {
     {Kind::Value, kTextureReplacement, "TEXTURE REPLACEMENT"},
     {Kind::Value, kTextureDumping, "TEXTURE DUMPING"},
     {Kind::Value, kDumpFormat, "DUMP FORMAT"},
+    {Kind::Heading, -1, "BALANCING SETTINGS"},
+    {Kind::Value, kEnemyRebalance, "ENEMY REBALANCING"},
+    {Kind::Value, kPerDifficultyRebalance, "PER DIFFICULTY ENEMY REBALANCING"},
+    {Kind::Value, kRealisticClips, "REALISTIC CLIP SIZES"},
+    {Kind::Value, kRangeAdjust, "WEAPON RANGE ADJUSTMENTS"},
+    {Kind::Value, kRecoilAdjust, "RECOIL ADJUSTMENTS"},
+    {Kind::Value, kReloadAdjust, "RELOAD SPEED ADJUSTMENTS"},
+    {Kind::Value, kDrawAdjust, "WEAPON SWITCH SPEED ADJUSTMENTS"},
+    {Kind::Heading, -1, "NEW GAME+ SETTINGS"},
+    {Kind::Value, kNgpSilver, "SILVER WEAPONS"},
+    {Kind::Value, kNgpAmmo, "INFINITE AMMO"},
+    {Kind::Value, kNgpStartWeapon, "STARTING WEAPON"},
 };
+
+// what a row does, shown in the F10 panel's hint line while it is hovered or focused; empty for none
+bool Greyed(int id);
+
+const char* Description(int id) {
+    if ((id == kNgpSilver || id == kNgpAmmo || id == kNgpStartWeapon) && Greyed(id))
+        return "Complete the game on any difficulty to unlock.";
+    switch (id) {
+        case kEnemyRebalance:
+            return "Enemies take fewer hits to kill, from balance.toml. Best with realistic clip sizes.";
+        case kPerDifficultyRebalance:
+            return "On: Hard and Black Ops use their own tables. Off: all use Normal's, like the original.";
+        case kRealisticClips: return "Uses the clip sizes in balance.toml instead of the game's inflated ones.";
+        case kRangeAdjust: return "Uses the ranges in balance.toml, for a more satisfying reach.";
+        case kRecoilAdjust:
+            return "Uses the recoil values in balance.toml to rebalance how much each weapon kicks.";
+        case kReloadAdjust: return "Reload speeds from balance.toml, animation and sound kept in step. 1.0 is the game's speed.";
+        case kDrawAdjust: return "Weapon switch speeds from balance.toml, animation and sound kept in step. 1.0 is the game's.";
+        case kNgpSilver: return "Only affects stages unlocked for New Game+ on this difficulty. From the next level loaded.";
+        case kNgpAmmo:
+        case kNgpStartWeapon: return "Only affects stages unlocked for New Game+ on this difficulty.";
+        default: return "";
+    }
+}
+int g_described = -1;  // the row whose description shows, this frame
 
 const std::vector<Row>& InputRows() {
     static const std::vector<Row> list = [] {
@@ -339,14 +383,28 @@ bool* ToggleFlag(Settings& s, int id) {
         case kControllerHoldAim: return &o.controller_hold_aim;
         case kGyroAiming: return &o.gyro.enabled;
         case kAimAssist: return &o.aim_assist;
+        case kEnemyRebalance: return &o.enemy_rebalance;
+        case kPerDifficultyRebalance: return &o.per_difficulty_rebalance;
+        case kRealisticClips: return &o.realistic_clips;
+        case kRangeAdjust: return &o.range_adjust;
+        case kRecoilAdjust: return &o.recoil_adjust;
+        case kReloadAdjust: return &o.reload_adjust;
+        case kDrawAdjust: return &o.draw_adjust;
+        case kNgpSilver: return &o.ngp_silver_weapons;
+        case kNgpAmmo: return &o.ngp_infinite_ammo;
         default: return nullptr;
     }
 }
 
 bool DisplayRow(int id) { return id == kMonitor || id == kDisplayMode || id == kResolution; }
 
-// shown dimmed and left as it is: HDR output without an HDR display
-bool Greyed(int id) { return id == kHdrOutput && !game::g_hdr_display; }
+// shown dimmed and left as it is: HDR output without an HDR display, per difficulty enemy rebalancing without
+// enemy rebalancing, the New Game+ settings before the game is finished on a difficulty
+bool Unsupported(int id) { return id == kHdrOutput && !game::g_hdr_display; }
+bool Greyed(int id) {
+    bool locked = (id == kNgpSilver || id == kNgpAmmo || id == kNgpStartWeapon) && !game::NewGamePlusUnlocked();
+    return Unsupported(id) || locked || (id == kPerDifficultyRebalance && !game::Opt().enemy_rebalance);
+}
 
 std::string g_display_monitor;  // the held monitor, beside the held display settings
 
@@ -500,6 +558,13 @@ bool StepGraphicsRow(int id, int step, Settings& s, char (&text)[64]) {
         case kDrawDistance:
             std::snprintf(text, sizeof(text), "%s", kDistanceNames[StepTable(kDistances, o.draw_distance, step)]);
             return true;
+        case kNgpStartWeapon: {
+            int count = int(std::size(kStartWeaponNames));
+            int i = std::min(int(o.ngp_start_weapon), count - 1);
+            if (step) o.ngp_start_weapon = uint32_t(i = StepIndex(i, step, count));
+            std::snprintf(text, sizeof(text), "%s", kStartWeaponNames[i]);
+            return true;
+        }
         default:
             return false;
     }
@@ -617,7 +682,7 @@ void StepInputRow(int id, int step, char (&text)[64]) {
 
 // steps the value first when step is not zero
 std::string RowText(int id, int step, Settings& s = Get()) {
-    if (Greyed(id)) return "NOT SUPPORTED";
+    if (Unsupported(id)) return "NOT SUPPORTED";
     char text[64] = "";
     if (bool* on = ToggleFlag(s, id)) {
         Flip(*on, step);
@@ -798,8 +863,10 @@ void ValueRow(const Row& r) {
     bool held = g_display_held && DisplayRow(r.id);
     bool greyed = Greyed(r.id);
     ImGui::BeginDisabled(greyed);
-    int step = OptionRow(r.label, Ui(RowText(r.id, 0, held ? g_display : Get())).c_str());
+    bool pointed = false;
+    int step = OptionRow(r.label, Ui(RowText(r.id, 0, held ? g_display : Get())).c_str(), &pointed);
     ImGui::EndDisabled();
+    if (pointed && *Description(r.id)) g_described = r.id;
     if (!step || greyed) return;
     if (DisplayRow(r.id)) HoldDisplay(r.id, step);
     else RowText(r.id, step);
@@ -879,6 +946,7 @@ void DrawFooter(float em) {
     const char* hint = "";
     if (g_capture >= 0) hint = "Press a key or mouse button to bind, Escape cancels";
     else if (g_page == kKeyboardPage && g_hovered_box >= 0) hint = "Right click or Delete clears the key";
+    else if (g_described >= 0) hint = Description(g_described);
     ImGui::TextUnformatted(Ui(hint, false).c_str());
     ImGui::PopStyleColor();
     float bw = em * 8;
@@ -911,6 +979,7 @@ void DrawPanel() {
         float footer = ImGui::GetTextLineHeightWithSpacing() + ImGui::GetFrameHeightWithSpacing() + em;
         ImGui::BeginChild("##rows", ImVec2(0, -footer), ImGuiChildFlags_NavFlattened);
         g_hovered_box = -1;
+        g_described = -1;
         DrawRows(g_page);
         ImGui::EndChild();
         DrawFooter(em);

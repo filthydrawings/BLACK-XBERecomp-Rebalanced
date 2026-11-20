@@ -51,6 +51,18 @@ struct Options {
     uint32_t rumble_intensity = 100;  // percent of the game's vibration
     gyro::Settings gyro;  // the controller's gyro turns the view, beside the right stick
     bool menu_animations = true;  // off: menu pages and the pause menu change without sliding in and out
+    // balancing, from balance.toml beside the exe (src/game/rebalance.cpp)
+    bool enemy_rebalance = true;  // hits to kill from its enemy tables; off the game's own
+    bool per_difficulty_rebalance = true;  // Hard and Black Ops their own tables; off every difficulty Normal's
+    bool realistic_clips = true;  // its clip sizes
+    bool range_adjust = false;  // its ranges
+    bool recoil_adjust = false;  // its recoil kicks
+    bool reload_adjust = true;  // its reload speeds
+    bool draw_adjust = true;  // its weapon switch speeds
+    // New Game+ stages (src/game/new_game_plus.cpp): on, the game's own
+    bool ngp_silver_weapons = true;
+    bool ngp_infinite_ammo = true;
+    uint32_t ngp_start_weapon = 0;  // 0 the game's, else 1 + a weapon record, layout::kWeaponNames' order
     std::map<std::string, std::string> keys;  // action id to key names, absent is the default
 };
 Options& Opt();
@@ -65,5 +77,6 @@ inline std::atomic<bool> g_hide_hud{false};  // the toggle HUD key: the gameplay
 inline std::atomic<bool> g_focus_paused{false};  // the game thread waits for the window's focus
 inline std::atomic<uint32_t> g_focus_pauses{0};  // focus pauses ended so far
 void WaitWhileUnfocused();  // focus_pause.cpp: game thread, before the present
+bool NewGamePlusUnlocked();  // new_game_plus.cpp: the profile loaded has the game finished on a difficulty
 
 }  // namespace game

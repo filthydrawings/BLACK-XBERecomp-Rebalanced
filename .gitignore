@@ -1,6 +1,9 @@
 # build
 /out/
 /build/
+
+# recompiler SDK, unpacked locally
+/sdk/
 *.zip
 *.pdb
 *.exe
