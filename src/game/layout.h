@@ -94,8 +94,9 @@ constexpr uint32_t kTypeHits = 0x3C;  // a pointer to a pointer to its hits tabl
 // hits table entry: float share of health a hit takes from the front, from the back, then two instant kill flag bytes
 constexpr uint32_t kHitsEntrySize = 12;
 
-// weapon records, the weapon data blocks, in one array
-constexpr uint32_t kWeaponRecords = 16;
+// weapon records, the weapon data blocks, in one array. The last, the M16A2 Black Ops starts with, is an M16's
+// with 0xA0 bytes more at +0x110 (its kind's name there at +0x1B0): the array ends with it
+constexpr uint32_t kWeaponRecords = 17;
 constexpr uint32_t kWeaponRecordSize = 0x1E0;
 constexpr uint32_t kDataClip = 0x60;  // int: the clip size
 constexpr uint32_t kDataAmmoType = 0x64;  // int: the ammo pool it shares
@@ -107,7 +108,7 @@ constexpr uint32_t kWeaponRecordsAt = 0x8227D330;  // record 0, in GlobData.bin,
 // the records in order, as balance.toml names them
 inline constexpr const char* kWeaponNames[kWeaponRecords] = {
     "dc3elite", "spas12", "sniper", "uzi", "g36c", "ak47", "rpg", "launcher",
-    "mac10", "p90", "m249", "magnum", "m16", "rem870", "glock", "mp5"};
+    "mac10", "p90", "m249", "magnum", "m16", "rem870", "glock", "mp5", "m16a2"};
 inline uint32_t WeaponRecord(uint32_t weapon) { return kWeaponRecordsAt + weapon * kWeaponRecordSize; }
 // the place in the array of the record at data, kWeaponRecords for none
 inline uint32_t WeaponRecordIndex(uint32_t data) {

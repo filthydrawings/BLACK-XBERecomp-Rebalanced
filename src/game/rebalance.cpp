@@ -42,9 +42,11 @@ namespace {
 
 namespace fs = std::filesystem;
 
-// the records a hits row lists, in its order: all but the RPG and the launcher, whose damage is the explosion's
-constexpr uint32_t kRowWeapons[] = {0, 1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13, 14, 15};
+// the records a hits row lists, in its order: all but the RPG and the launcher, whose damage is the explosion's. A
+// row may leave out the last, the M16A2, rows from before it was there; a number below 0 keeps the game's own
+constexpr uint32_t kRowWeapons[] = {0, 1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 constexpr size_t kRowSize = std::size(kRowWeapons);
+constexpr size_t kOldRowSize = kRowSize - 1;
 // the tables by difficulty, 0 to 3: easy plays normal's
 constexpr const char* kDifficultyTables[] = {"normal", "normal", "hard", "black_ops"};
 constexpr uint32_t kDifficulties = 4;
@@ -121,15 +123,17 @@ int WeaponIndex(std::string_view name) {
     return -1;
 }
 
-// a row of hits to kill, kRowSize numbers in kRowWeapons' order, as the shares of one side
-std::optional<std::array<float, kRowSize>> ReadRow(const toml::node* node) {
+// a row of hits to kill, kRowSize numbers in kRowWeapons' order (or kOldRowSize), as the shares of one side; none
+// for a weapon the row leaves out or gives a number below 0
+using RowShares = std::array<std::optional<float>, kRowSize>;
+std::optional<RowShares> ReadRow(const toml::node* node) {
     const toml::array* a = node ? node->as_array() : nullptr;
-    if (!a || a->size() != kRowSize) return std::nullopt;
-    std::array<float, kRowSize> shares;
-    for (size_t i = 0; i < kRowSize; i++) {
+    if (!a || (a->size() != kRowSize && a->size() != kOldRowSize)) return std::nullopt;
+    RowShares shares;
+    for (size_t i = 0; i < a->size(); i++) {
         auto hits = (*a)[i].value<double>();
         if (!hits) return std::nullopt;
-        shares[i] = Share(*hits);
+        if (*hits >= 0) shares[i] = Share(*hits);
     }
     return shares;
 }
@@ -179,12 +183,16 @@ void Load() {
             if (std::sscanf(name.c_str(), "type_%u%n", &id, &end) != 1 || name.size() != size_t(end)) continue;
             auto front = ReadRow(&node);
             if (!front) {
-                LOGE("balance.toml: %s.%s needs %zu numbers", kDifficultyTables[d], name.c_str(), kRowSize);
+                LOGE("balance.toml: %s.%s needs %zu numbers (or %zu)", kDifficultyTables[d], name.c_str(), kRowSize,
+                     kOldRowSize);
                 continue;
             }
             auto back = ReadRow(table->get(name + "_back"));
-            for (size_t i = 0; i < kRowSize; i++)
-                g_settings[id][d][kRowWeapons[i]] = Shares{(*front)[i], back ? (*back)[i] : (*front)[i]};
+            for (size_t i = 0; i < kRowSize; i++) {
+                if (!(*front)[i]) continue;
+                std::optional<float> rear = back ? (*back)[i] : (*front)[i];
+                g_settings[id][d][kRowWeapons[i]] = Shares{*(*front)[i], rear.value_or(*(*front)[i])};
+            }
         }
     }
     LOGR("balance.toml: %zu enemy types set", g_settings.size());
@@ -254,6 +262,12 @@ void ReadTypes(uint32_t any) {
             t.game[e] = {G<float>(entry), G<float>(entry + 4)};
         }
         g_types.push_back(t);
+        uint32_t m16a2 = weapon_kinds::OfRecord(WeaponRecord(kWeaponRecords - 1));
+        if (m16a2 < entries) {
+            Shares g = t.game[m16a2];
+            LOGR("balance.toml: type_%u, the game's M16A2 (kind %u): %.1f hits, %.1f from behind", id, m16a2,
+                 g.front > 0 ? kShareOfHits / g.front : 0.0f, g.back > 0 ? kShareOfHits / g.back : 0.0f);
+        }
     }
 }
 
