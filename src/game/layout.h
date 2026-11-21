@@ -109,6 +109,13 @@ inline constexpr const char* kWeaponNames[kWeaponRecords] = {
     "dc3elite", "spas12", "sniper", "uzi", "g36c", "ak47", "rpg", "launcher",
     "mac10", "p90", "m249", "magnum", "m16", "rem870", "glock", "mp5"};
 inline uint32_t WeaponRecord(uint32_t weapon) { return kWeaponRecordsAt + weapon * kWeaponRecordSize; }
+// the place in the array of the record at data, kWeaponRecords for none
+inline uint32_t WeaponRecordIndex(uint32_t data) {
+    if (data < kWeaponRecordsAt) return kWeaponRecords;
+    uint32_t at = data - kWeaponRecordsAt;
+    return at % kWeaponRecordSize || at / kWeaponRecordSize >= kWeaponRecords ? kWeaponRecords
+                                                                              : at / kWeaponRecordSize;
+}
 // GlobData.bin is in: record 0 has the words every record has
 inline bool WeaponRecordsMapped() {
     return kernel::R32(WeaponRecord(0) + 4) == 1 && kernel::G<float>(WeaponRecord(0) + 0x1C) == 1.0f;
