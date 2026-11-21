@@ -32,6 +32,7 @@
 #include "core/log.h"
 #include "game/layout.h"
 #include "game/rebalance.h"
+#include "game/weapon_kinds.h"
 #include "xdk/hle.h"
 
 using namespace kernel;
@@ -41,9 +42,11 @@ namespace {
 
 namespace fs = std::filesystem;
 
-// the records a hits row lists, in its order: all but the RPG and the launcher, whose damage is the explosion's
-constexpr uint32_t kRowWeapons[] = {0, 1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13, 14, 15};
+// the records a hits row lists, in its order: all but the RPG and the launcher, whose damage is the explosion's. A
+// row may leave out the last, the M16A2, rows from before it was there; a number below 0 keeps the game's own
+constexpr uint32_t kRowWeapons[] = {0, 1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 constexpr size_t kRowSize = std::size(kRowWeapons);
+constexpr size_t kOldRowSize = kRowSize - 1;
 // the tables by difficulty, 0 to 3: easy plays normal's
 constexpr const char* kDifficultyTables[] = {"normal", "normal", "hard", "black_ops"};
 constexpr uint32_t kDifficulties = 4;
@@ -58,10 +61,12 @@ struct Shares {
 };
 using Row = std::array<std::optional<Shares>, kWeaponRecords>;
 
+// a hits table has an entry per weapon kind (weapon_kinds.h), the kind's weapon record the setting it takes
+constexpr uint32_t kMostEntries = 32;
 struct Type {
     uint32_t id;
     uint32_t table;
-    std::array<Shares, kWeaponRecords> game;  // as the game had them, before any write
+    std::array<Shares, kMostEntries> game;  // by entry, as the game had them, before any write
 };
 std::vector<Type> g_types;  // read at the first hit
 std::map<uint32_t, std::array<Row, kDifficulties>> g_settings;  // by type id
@@ -118,15 +123,17 @@ int WeaponIndex(std::string_view name) {
     return -1;
 }
 
-// a row of hits to kill, kRowSize numbers in kRowWeapons' order, as the shares of one side
-std::optional<std::array<float, kRowSize>> ReadRow(const toml::node* node) {
+// a row of hits to kill, kRowSize numbers in kRowWeapons' order (or kOldRowSize), as the shares of one side; none
+// for a weapon the row leaves out or gives a number below 0
+using RowShares = std::array<std::optional<float>, kRowSize>;
+std::optional<RowShares> ReadRow(const toml::node* node) {
     const toml::array* a = node ? node->as_array() : nullptr;
-    if (!a || a->size() != kRowSize) return std::nullopt;
-    std::array<float, kRowSize> shares;
-    for (size_t i = 0; i < kRowSize; i++) {
+    if (!a || (a->size() != kRowSize && a->size() != kOldRowSize)) return std::nullopt;
+    RowShares shares;
+    for (size_t i = 0; i < a->size(); i++) {
         auto hits = (*a)[i].value<double>();
         if (!hits) return std::nullopt;
-        shares[i] = Share(*hits);
+        if (*hits >= 0) shares[i] = Share(*hits);
     }
     return shares;
 }
@@ -176,12 +183,16 @@ void Load() {
             if (std::sscanf(name.c_str(), "type_%u%n", &id, &end) != 1 || name.size() != size_t(end)) continue;
             auto front = ReadRow(&node);
             if (!front) {
-                LOGE("balance.toml: %s.%s needs %zu numbers", kDifficultyTables[d], name.c_str(), kRowSize);
+                LOGE("balance.toml: %s.%s needs %zu numbers (or %zu)", kDifficultyTables[d], name.c_str(), kRowSize,
+                     kOldRowSize);
                 continue;
             }
             auto back = ReadRow(table->get(name + "_back"));
-            for (size_t i = 0; i < kRowSize; i++)
-                g_settings[id][d][kRowWeapons[i]] = Shares{(*front)[i], back ? (*back)[i] : (*front)[i]};
+            for (size_t i = 0; i < kRowSize; i++) {
+                if (!(*front)[i]) continue;
+                std::optional<float> rear = back ? (*back)[i] : (*front)[i];
+                g_settings[id][d][kRowWeapons[i]] = Shares{*(*front)[i], rear.value_or(*(*front)[i])};
+            }
         }
     }
     LOGR("balance.toml: %zu enemy types set", g_settings.size());
@@ -245,11 +256,18 @@ void ReadTypes(uint32_t any) {
         uint32_t table = hits ? R32(hits) : 0;
         if (!table) continue;
         Type t{id, table, {}};
-        for (uint32_t w = 0; w < kWeaponRecords; w++) {
-            uint32_t entry = table + w * kHitsEntrySize;
-            t.game[w] = {G<float>(entry), G<float>(entry + 4)};
+        uint32_t entries = std::min(std::max(weapon_kinds::Count(), kWeaponRecords), kMostEntries);
+        for (uint32_t e = 0; e < entries; e++) {
+            uint32_t entry = table + e * kHitsEntrySize;
+            t.game[e] = {G<float>(entry), G<float>(entry + 4)};
         }
         g_types.push_back(t);
+        uint32_t m16a2 = weapon_kinds::OfRecord(WeaponRecord(kWeaponRecords - 1));
+        if (m16a2 < entries) {
+            Shares g = t.game[m16a2];
+            LOGR("balance.toml: type_%u, the game's M16A2 (kind %u): %.1f hits, %.1f from behind", id, m16a2,
+                 g.front > 0 ? kShareOfHits / g.front : 0.0f, g.back > 0 ? kShareOfHits / g.back : 0.0f);
+        }
     }
 }
 
@@ -270,17 +288,10 @@ struct SpedClip {
 SpedClip g_sped;
 using Speeds = std::array<float, kKinds>;
 
-// the record's place in the array, kWeaponRecords for none
-uint32_t RecordIndex(uint32_t data) {
-    if (data < kWeaponRecordsAt) return kWeaponRecords;
-    uint32_t at = data - kWeaponRecordsAt;
-    return at % kWeaponRecordSize ? kWeaponRecords : std::min(at / kWeaponRecordSize, kWeaponRecords);
-}
-
 // the weapon in hand's speed of each kind: its own with the kind's toggle on, else 1
 Speeds AnimationSpeeds(uint32_t weapon) {
     Speeds speeds;
-    uint32_t w = weapon ? RecordIndex(R32(weapon + kWeaponData)) : kWeaponRecords;
+    uint32_t w = weapon ? WeaponRecordIndex(R32(weapon + kWeaponData)) : kWeaponRecords;
     for (size_t k = 0; k < kKinds; k++) {
         if (!(game::Opt().*kAnimationKinds[k].toggle) || w >= kWeaponRecords) speeds[k] = 1.0f;
         else speeds[k] = float(g_speeds[k][w].value_or(1.0));
@@ -348,20 +359,23 @@ void Tick() {
 }  // namespace rebalance
 
 // sub_001E74B0 at 0x1E77F4, the call that takes a hit's damage from its type's hits table: ebx the character hit,
-// [ebp+0x18] the weapon's entry. The entry gets this difficulty's setting, else the game's own
+// [ebp+0x18] the weapon's kind, its entry. The entry gets this difficulty's setting for the kind's record, else the
+// game's own
 void RebalanceHit(X86Context& ctx, uint8_t*) {
     uint32_t type = R32(ctx.ebx + kCharacterType);
-    uint32_t weapon = G<uint8_t>(ctx.ebp + 0x18);
-    if (!type || weapon >= kWeaponRecords) return;
+    uint32_t kind = G<uint8_t>(ctx.ebp + 0x18);
+    uint32_t kind_entry = weapon_kinds::Entry(kind);
+    uint32_t weapon = kind_entry ? WeaponRecordIndex(R32(kind_entry + 8)) : kWeaponRecords;
+    if (!type || kind >= kMostEntries || weapon >= kWeaponRecords) return;
     if (g_types.empty()) ReadTypes(type);
     uint32_t id = R32(type + kTypeId);
     auto t = std::find_if(g_types.begin(), g_types.end(), [&](const Type& t) { return t.id == id; });
     if (t == g_types.end()) return;
-    Shares shares = t->game[weapon];
+    Shares shares = t->game[kind];
     auto set = g_settings.find(id);
     if (game::Opt().enemy_rebalance && set != g_settings.end())
         if (const auto& s = set->second[TableFor(Difficulty())][weapon]) shares = *s;
-    uint32_t entry = t->table + weapon * kHitsEntrySize;
+    uint32_t entry = t->table + kind * kHitsEntrySize;
     G<float>(entry) = shares.front;
     G<float>(entry + 4) = shares.back;
 }

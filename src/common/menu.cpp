@@ -70,7 +70,7 @@ const char* const kAoNames[] = {"OFF", "SSAO", "GTAO"};
 // "GAME DEFAULT" then the weapon records in order, as src/game/layout.h has them
 const char* const kStartWeaponNames[] = {"GAME DEFAULT", "DC3 ELITE", "SPAS-12", "SNIPER RIFLE", "UZI", "G36C",
                                          "AK-47", "RPG", "GRENADE LAUNCHER", "MAC-10", "P90", "M249", "MAGNUM",
-                                         "M16", "REMINGTON 870", "GLOCK", "MP5"};
+                                         "M16", "REMINGTON 870", "GLOCK", "MP5", "M16A2"};
 constexpr uint32_t kFmvScales[] = {0, 1};
 const char* const kFmvScaleNames[] = {"FILL", "4:3"};
 constexpr uint32_t kColourBlindModes[] = {0, 1, 2, 3};
